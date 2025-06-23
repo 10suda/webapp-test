@@ -456,8 +456,9 @@
             document.body.classList.add('desktop-view');
         }
         const IS_MOBILE_VIEW = document.body.classList.contains('mobile-view');
+        const INITIAL_ZOOM_LEVEL = IS_MOBILE_VIEW ? 3 : 4;
 
-        const map = L.map('map').setView([62, -96], 4);
+        const map = L.map('map').setView([62, -96], INITIAL_ZOOM_LEVEL);
         
         L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
             attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
@@ -485,7 +486,11 @@
                 homeButton = container; 
                 container.title = "Reset View";
                 container.innerHTML = `<a href="#" role="button"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16"><path d="M8.354 1.146a.5.5 0 0 0-.708 0l-6 6A.5.5 0 0 0 1.5 7.5v7a.5.5 0 0 0 .5.5h4.5a.5.5 0 0 0 .5-.5v-4h2v4a.5.5 0 0 0 .5.5H14a.5.5 0 0 0 .5-.5v-7a.5.5 0 0 0-.146-.354L13 5.793V2.5a.5.5 0 0 0-.5-.5h-1a.5.5 0 0 0-.5.5v1.293L8.354 1.146zM2.5 14V7.707l5.5-5.5 5.5 5.5V14H10v-4a.5.5 0 0 0-.5-.5h-3a.5.5 0 0 0-.5.5v4H2.5z"/></svg></a>`;
-                L.DomEvent.on(container, 'click', function(e) { e.preventDefault(); e.stopPropagation(); map.setView([62, -96], 4); });
+                L.DomEvent.on(container, 'click', function(e) { 
+                    e.preventDefault(); 
+                    e.stopPropagation(); 
+                    map.setView([62, -96], INITIAL_ZOOM_LEVEL); 
+                });
                 return container;
             }
         });
@@ -497,9 +502,9 @@
         let currentIndicator;
         let indicatorScales = {};
         let allIndicators = []; 
-        let clickedFeature = null; // Fully selected feature (sidebar open)
-        let clickedLayer = null;   // Layer for the fully selected feature
-        let tappedFeatureLayer = null; // Temporarily tapped feature on mobile (tooltip open)
+        let clickedFeature = null; 
+        let clickedLayer = null;   
+        let tappedFeatureLayer = null; 
         let rankingChart = null;
         const idKeys = ['CDUID', 'PRUID', 'CSDUID', 'CTUID', 'CMAUID', 'CMAPUID'];
         const nameKeys = ['CDNAME', 'PRNAME', 'CSDNAME', 'CTNAME', 'CMANAME'];
@@ -525,7 +530,6 @@
         function formatIndicatorName(name) { let formattedName = name.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()); if (isPercentageIndicator(name)) formattedName += ' (%)'; else if (name.toLowerCase().endsWith('count') || name.toLowerCase() === 'total_pop') formattedName = formattedName.replace(' Count', '') + ' (Count)'; else if (isCurrencyIndicator(name)) formattedName += ' ($)'; formattedName = formattedName.replace(/(\d+)\s(\d+)/g, '$1-$2'); return formattedName; }
         
         function onEachFeature(feature, layer) {
-            // Use different event handlers based on the view mode
             if (IS_MOBILE_VIEW) {
                 layer.on({ click: masterClickHandler });
             } else {
@@ -533,43 +537,34 @@
             }
         }
 
-        // This new handler manages all click logic
         function masterClickHandler(e) {
             L.DomEvent.stopPropagation(e);
             const targetLayer = e.target;
 
-            // --- DESKTOP LOGIC ---
             if (!IS_MOBILE_VIEW) {
-                handleFeatureClick(e); // Use original logic for desktop
+                handleFeatureClick(e);
                 return;
             }
 
-            // --- MOBILE LOGIC (2-TAP SYSTEM) ---
             if (clickedLayer === targetLayer) {
-                return; // Do nothing if sidebar is already open for this feature
+                return; 
             }
 
             if (tappedFeatureLayer === targetLayer) {
-                // SECOND TAP: This is the confirmation tap. Open the sidebar.
-                infoBox.classList.remove('visible'); // Hide tooltip
-                handleFeatureClick(e); // Promote to a full click
-                tappedFeatureLayer = null; // Reset tap state
+                infoBox.classList.remove('visible'); 
+                handleFeatureClick(e); 
+                tappedFeatureLayer = null; 
             } else {
-                // FIRST TAP: Show tooltip and highlight.
-
-                // Clear any previous "fully selected" feature
                 if (clickedLayer) {
                     highlightClickedFeature(null);
                     dataSidebar.classList.remove('visible');
                     clickedFeature = null;
                 }
-                // Clear any previous "tapped" feature
                 if (tappedFeatureLayer) {
                     resetHighlight({ target: tappedFeatureLayer });
                 }
                 infoBox.classList.remove('visible');
 
-                // Set the new "tapped" feature
                 tappedFeatureLayer = targetLayer;
                 highlightFeature(e);
             }
