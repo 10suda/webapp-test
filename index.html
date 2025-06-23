@@ -453,6 +453,9 @@
     document.addEventListener('DOMContentLoaded', () => {
 
         const map = L.map('map').setView([62, -96], 4);
+        
+        // Helper function to check for mobile view
+        const isMobile = () => window.innerWidth <= 768;
 
         L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
             attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
@@ -472,8 +475,8 @@
             showMarker: true,
             showPopup: false,
             autoClose: true,
-            retainZoomLevel: false,
-            animateZoom: true,
+            retainZoomLevel: isMobile(), // Do not zoom on mobile
+            animateZoom: !isMobile(), // Do not animate zoom on mobile
             keepResult: true,
             searchLabel: 'Enter Canadian address...'
         });
@@ -666,8 +669,6 @@
         }
 
         async function loadInitialData() {
-            // --- IMPORTANT ---
-            // List all your data files from the 'data' folder here.
             const filesToLoad = [
                 'data/PR_layer_2016.json',
                 'data/CD_layer_2016.json',
@@ -696,15 +697,15 @@
                     const processAndContinue = (dataObject) => {
                         processData(dataObject, filename, isFirstFileForIndicatorSetup);
                         if (isFirstFileForIndicatorSetup) {
-                            isFirstFileForIndicatorSetup = false; // Turn off after first successful processing
+                            isFirstFileForIndicatorSetup = false;
                         }
                     };
 
                     if (filename.endsWith('.zip')) {
                         const arrayBuffer = await response.arrayBuffer();
-                        const geojson = await shp(arrayBuffer); // shp.js returns a promise
+                        const geojson = await shp(arrayBuffer);
                         processAndContinue(geojson);
-                    } else { // .json or .geojson
+                    } else {
                         const data = await response.json();
                         processAndContinue(data);
                     }
@@ -714,7 +715,6 @@
                 }
             }
 
-            // After all files have been attempted
             const latestYear = Object.keys(loadedLayers).sort((a, b) => b - a)[0];
             if (latestYear) {
                 setActiveYear(latestYear);
@@ -836,7 +836,10 @@
         }
 
         function setActiveLayer(filename) {
-            map.setView([62, -96], 4);
+            // On desktop, reset view. On mobile, do not reset view.
+            if (!isMobile()) {
+                map.setView([62, -96], 4);
+            }
             dataSidebar.classList.remove('visible');
             clickedFeature = null;
             highlightClickedFeature(null);
@@ -981,34 +984,27 @@
             updateLegendIndicator();
             dataSidebar.classList.add('visible'); 
 
+            // Only zoom on desktop. On mobile, user controls the zoom.
             setTimeout(() => {
-                try {
-                    const bounds = target.getBounds();
-                    if (!bounds || !bounds.isValid()) {
-                        throw new Error("Bounds are not valid for this feature.");
-                    }
-                    
-                    const isMobileView = window.innerWidth <= 768;
-                    let paddingOptions = {};
-                    
-                    if (isMobileView && dataSidebar.classList.contains('visible')) {
-                        paddingOptions = {
-                            paddingTopLeft: [10, 10],
-                            paddingBottomRight: [10, dataSidebar.offsetHeight + 10]
-                        };
-                    } else {
-                         paddingOptions = { 
+                if (!isMobile()) {
+                    try {
+                        const bounds = target.getBounds();
+                        if (!bounds || !bounds.isValid()) {
+                            throw new Error("Bounds are not valid for this feature.");
+                        }
+                        
+                        const paddingOptions = { 
                             paddingTopLeft: [document.getElementById('sidebar').offsetWidth + 20, 40],
                             paddingBottomRight: [dataSidebar.offsetWidth + 20, 40]
                         };
-                    }
-                    map.fitBounds(bounds, paddingOptions);
+                        map.fitBounds(bounds, paddingOptions);
 
-                } catch (err) {
-                    console.error("Could not zoom to feature. Using fallback.", err);
-                    const layerType = getLayerType(activeLayerKey);
-                    const fallbackZoom = fallbackZoomLevels[layerType] || 8; 
-                    map.flyTo(latlng, fallbackZoom, {animate: true, duration: 1});
+                    } catch (err) {
+                        console.error("Could not zoom to feature. Using fallback.", err);
+                        const layerType = getLayerType(activeLayerKey);
+                        const fallbackZoom = fallbackZoomLevels[layerType] || 8; 
+                        map.flyTo(latlng, fallbackZoom, {animate: true, duration: 1});
+                    }
                 }
             }, 350); 
 
@@ -1252,23 +1248,20 @@
              return `<td style="background-color:${bgColor}; color:${textColor};" class="text-right">${displayValue}</td>`;
         }
         
-        // NEW: Refactored function to handle all indicator changes
         function changeIndicator(newIndicator, keepSelection = false) {
             if (!newIndicator || currentIndicator === newIndicator) {
-                return; // No change needed
+                return;
             }
 
             currentIndicator = newIndicator;
-            indicatorSelect.value = newIndicator; // Keep dropdown in sync
+            indicatorSelect.value = newIndicator; 
 
-            updateMapStyles(); // This updates map colors and legend for new indicator
+            updateMapStyles();
 
             if (keepSelection && clickedFeature) {
-                // Re-populate the sidebar for the same feature with the new indicator
                 populateDataSidebar(clickedFeature.properties);
                 updateLegendIndicator();
             } else {
-                // This is the reset path for manual dropdown changes or other resets
                 dataSidebar.classList.remove('visible');
                 clickedFeature = null;
                 highlightClickedFeature(null);
@@ -1417,7 +1410,6 @@
         }
         
         indicatorSelect.addEventListener('change', (e) => {
-            // A manual change from the dropdown always resets the view
             changeIndicator(e.target.value, false); 
         });
 
