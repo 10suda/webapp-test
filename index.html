@@ -1,0 +1,1354 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CDP - Map Tool</title>
+    <link rel="icon" type="image/png" href="icon.png">
+
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+
+    <script src="https://unpkg.com/shpjs@latest/dist/shp.js"></script>
+
+    <script src="https://unpkg.com/topojson@3.0.2/dist/topojson.min.js"></script>
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/chroma-js/2.4.2/chroma.min.js"></script>
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Lato:wght@400;700&display=swap" rel="stylesheet">
+
+    <link rel="stylesheet" href="https://unpkg.com/leaflet-geosearch@3.11.0/dist/geosearch.css" />
+    <script src="https://unpkg.com/leaflet-geosearch@3.11.0/dist/geosearch.umd.js"></script>
+    
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+
+    <style>
+        /* CDP Brand Colors */
+        :root {
+            --cdp-teal: #009999;
+            --cdp-dark-grey: #37424a;
+            --cdp-light-grey: #f8f9fa;
+            --cdp-light-teal: #e0f2f1;
+            --cdp-dark-teal: #007f7f;
+        }
+
+        body {
+            font-family: 'Lato', sans-serif;
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            margin: 0;
+            overflow: hidden;
+        }
+        .header {
+            background-color: var(--cdp-dark-grey);
+            color: white;
+            padding: 10px 20px;
+            display: flex;
+            align-items: center;
+            flex-shrink: 0;
+            z-index: 1001;
+        }
+        .header-title {
+            font-size: 1.25rem;
+            font-weight: bold;
+        }
+        #main-content {
+            display: flex;
+            flex-grow: 1;
+            overflow: hidden;
+        }
+        #sidebar {
+            width: 350px;
+            background-color: var(--cdp-light-grey);
+            padding: 1rem;
+            overflow-y: auto;
+            border-right: 1px solid #dee2e6;
+            flex-shrink: 0;
+            transition: width 0.3s ease-in-out;
+        }
+        #map-container {
+            flex-grow: 1;
+            position: relative;
+        }
+        #map {
+            height: 100%;
+            width: 100%;
+            cursor: default;
+        }
+        .leaflet-grab {
+            cursor: grab;
+        }
+        .leaflet-interactive {
+            cursor: pointer;
+        }
+        #rankingChart {
+             cursor: pointer;
+        }
+        #info-box {
+            position: absolute;
+            background: rgba(255, 255, 255, 0.95);
+            padding: 10px;
+            border-radius: 5px;
+            box-shadow: 0 0 15px rgba(0,0,0,0.2);
+            z-index: 1000;
+            max-width: 350px;
+            pointer-events: none;
+            transform: translate(-50%, -125%);
+            text-align: center;
+            opacity: 0;
+            transition: opacity 0.2s;
+            visibility: hidden;
+        }
+        #info-box.visible {
+            opacity: 1;
+            visibility: visible;
+        }
+        #info-box::after {
+            content: '';
+            position: absolute;
+            top: 100%;
+            left: 50%;
+            margin-left: -10px;
+            border-width: 10px;
+            border-style: solid;
+            border-color: rgba(255, 255, 255, 0.95) transparent transparent transparent;
+        }
+        #data-sidebar {
+            width: 0;
+            background-color: var(--cdp-light-grey);
+            overflow: hidden;
+            border-left: 0px solid #dee2e6;
+            flex-shrink: 0;
+            transition: width 0.3s ease-in-out, padding 0.3s ease-in-out;
+            padding: 0;
+        }
+        #data-sidebar.visible {
+            width: 500px;
+            padding: 1rem;
+            border-left-width: 1px;
+        }
+        #data-sidebar-content {
+           height: calc(100% - 120px);
+           overflow-y: auto;
+        }
+        #data-sidebar-content table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.8rem;
+            table-layout: fixed;
+        }
+        #data-sidebar-content th, #data-sidebar-content td {
+            text-align: left;
+            padding: 8px;
+            border: 1px solid #e5e7eb; 
+        }
+        #data-sidebar-content table tbody tr[data-indicator] {
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+         #data-sidebar-content table tbody tr[data-indicator]:hover {
+            background-color: #f0f0f0;
+        }
+        #data-sidebar-content th {
+            font-weight: bold;
+            font-size: 0.85rem;
+            background-color: #f0f0f0;
+        }
+        #data-sidebar-content th:nth-child(2),
+        #data-sidebar-content th:nth-child(3) {
+            text-align: center;
+        }
+        #data-sidebar-content th:nth-child(2),
+        #data-sidebar-content td:nth-child(2),
+        #data-sidebar-content th:nth-child(3),
+        #data-sidebar-content td:nth-child(3) {
+            width: 25%;
+        }
+        #data-sidebar-content td:first-child {
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .sidebar-highlight {
+            background-color: var(--cdp-light-teal);
+            font-weight: bold;
+        }
+        .legend {
+             position: absolute;
+             bottom: 30px;
+             right: 10px;
+             padding: 10px;
+             background: rgba(255, 255, 255, 0.9);
+             box-shadow: 0 0 15px rgba(0,0,0,0.2);
+             border-radius: 5px;
+             z-index: 1000;
+             line-height: 18px;
+             width: 200px;
+        }
+        .legend .color-bar {
+            height: 12px;
+            width: 100%;
+            border-radius: 2px;
+            border: 1px solid #999;
+        }
+        .legend .labels {
+            display: flex;
+            justify-content: space-between;
+            font-size: 12px;
+        }
+        .legend h4 {
+            font-weight: bold;
+            margin-bottom: 5px;
+            white-space: normal;
+        }
+        .legend-marker {
+            position: absolute;
+            top: -8px;
+            width: 0;
+            height: 0;
+            border-left: 6px solid transparent;
+            border-right: 6px solid transparent;
+            border-bottom: 9px solid var(--cdp-dark-grey);
+            transform: translateX(-50%);
+            z-index: 1001;
+            transition: left 0.3s ease;
+        }
+        .file-input-btn, .download-btn {
+            background-color: var(--cdp-teal);
+            color: white;
+            padding: 0.5rem 1rem;
+            border-radius: 0.375rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background-color 0.2s;
+            display: inline-block;
+            text-align: center;
+        }
+        .file-input-btn:hover, .download-btn:hover {
+            background-color: var(--cdp-dark-teal);
+        }
+        .radio-control input[type="radio"] {
+            opacity: 0;
+            position: fixed;
+            width: 0;
+        }
+        .radio-control label {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 100%;
+            height: 42px;
+            padding: 8px 12px;
+            background-color: #e5e7eb;
+            border-radius: 0.25rem;
+            cursor: pointer;
+            transition: background-color 0.2s;
+            font-size: 0.875rem;
+            text-align: center;
+        }
+         .radio-control input[type="radio"]:checked + label {
+            background-color: var(--cdp-teal);
+            color: white;
+            font-weight: 600;
+        }
+         .radio-control label:hover {
+            background-color: #d1d5db;
+        }
+         .radio-control input[type="radio"]:checked + label:hover {
+             background-color: var(--cdp-dark-teal);
+         }
+         .radio-control label.disabled {
+            background-color: #f9fafb;
+            color: #d1d5db;
+            cursor: not-allowed;
+         }
+        .geosearch.bar {
+            border: 1px solid #ccc;
+            border-radius: 4px;
+        }
+         .geosearch input {
+            font-family: 'Lato', sans-serif;
+         }
+         .geosearch .results {
+            background: #fff;
+            border: 1px solid #ddd;
+         }
+         .geosearch .results > .active,
+         .geosearch .results > li:hover {
+            background-color: var(--cdp-light-teal);
+            border-color: var(--cdp-light-teal);
+         }
+        .leaflet-control-custom a {
+            background-position: 50% 50%;
+            background-repeat: no-repeat;
+            display: block;
+            width: 30px;
+            height: 30px;
+            line-height: 30px;
+            text-align: center;
+        }
+        .leaflet-control-custom a svg {
+             width: 18px;
+             height: 18px;
+             display: inline-block;
+             vertical-align: middle;
+         }
+        @keyframes rattle {
+            0% { transform: translateX(0); } 20% { transform: translateX(-2px); } 40% { transform: translateX(2px); }
+            60% { transform: translateX(-2px); } 80% { transform: translateX(2px); } 100% { transform: translateX(0); }
+        }
+        .rattle-animation { animation: rattle 0.5s ease-in-out; }
+
+        /* Download Modal Styles */
+        .modal-overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.6); z-index: 2000;
+            display: flex; justify-content: center; align-items: center;
+        }
+        .modal-content {
+            background: white; padding: 2rem; border-radius: 8px;
+            width: 90%; max-width: 600px; max-height: 90vh;
+            display: flex; flex-direction: column;
+        }
+        .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; }
+        .modal-body { overflow-y: auto; }
+        .modal-footer { margin-top: 1.5rem; text-align: right; }
+        .modal-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 1rem; }
+        .modal-select { width: 100%; height: 150px; border: 1px solid #ccc; border-radius: 4px; padding: 4px; }
+    </style>
+</head>
+<body class="bg-gray-100 text-gray-800">
+
+    <header class="header">
+        <img src="icon.png" alt="CDP Logo" class="h-8 w-8 mr-4">
+        <h1 class="header-title">The Community Data Program - Mapping Tool</h1>
+    </header>
+
+    <div id="main-content">
+        <aside id="sidebar">
+            <h2 class="text-xl font-semibold mb-3 border-b pb-2">Controls</h2>
+            <div class="mb-4">
+                <label for="file-input" class="block text-sm font-medium text-gray-700 mb-2">1. Load Data</label>
+                <label for="file-input" class="file-input-btn">Select Files</label>
+                <input id="file-input" type="file" accept=".zip,.geojson,.json" multiple class="hidden"/>
+                 <div id="message-box" class="mt-2 text-sm"></div>
+            </div>
+             <div id="year-control-container" class="mb-4"></div>
+             <div id="layer-control-container" class="mb-4"></div>
+            <div id="indicator-selector-container" class="hidden">
+                 <label for="indicator-select" class="block text-sm font-medium text-gray-700 mb-2">4. Select Indicator</label>
+                 <select id="indicator-select" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-teal-500 focus:border-teal-500 block w-full p-2.5">
+                 </select>
+            </div>
+        </aside>
+        <main id="map-container">
+            <div id="map"></div>
+            <div id="info-box"></div>
+            <div id="legend" class="legend hidden"></div>
+        </main>
+         <aside id="data-sidebar"></aside>
+    </div>
+
+    <div id="download-modal-overlay" class="modal-overlay hidden">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 class="text-2xl font-bold">Customize CSV Download</h2>
+                <button id="close-modal-btn" class="text-3xl leading-none">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="modal-grid">
+                    <div>
+                        <label for="dl-year-select" class="block font-semibold mb-1">Year</label>
+                        <select id="dl-year-select" multiple class="modal-select"></select>
+                    </div>
+                     <div>
+                        <label for="dl-layer-select" class="block font-semibold mb-1">Map Layer</label>
+                        <select id="dl-layer-select" multiple class="modal-select"></select>
+                    </div>
+                     <div>
+                        <label for="dl-province-select" class="block font-semibold mb-1">Province</label>
+                        <select id="dl-province-select" multiple class="modal-select"></select>
+                    </div>
+                     <div>
+                        <label for="dl-indicator-select" class="block font-semibold mb-1">Indicators</label>
+                        <select id="dl-indicator-select" multiple class="modal-select"></select>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                 <button id="download-modal-csv-btn" class="download-btn">Download CSV</button>
+            </div>
+        </div>
+    </div>
+
+
+    <script>
+    document.addEventListener('DOMContentLoaded', () => {
+
+        const map = L.map('map').setView([62, -96], 4);
+
+        L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
+            subdomains: 'abcd',
+            maxZoom: 19,
+            minZoom: 3
+        }).addTo(map);
+
+        const searchControl = new GeoSearch.GeoSearchControl({
+            provider: new GeoSearch.OpenStreetMapProvider({
+                 params: {
+                     'accept-language': 'en', 
+                     countrycodes: 'ca' 
+                 },
+            }),
+            style: 'bar',
+            showMarker: true,
+            showPopup: false,
+            autoClose: true,
+            retainZoomLevel: false,
+            animateZoom: true,
+            keepResult: true,
+            searchLabel: 'Enter Canadian address...'
+        });
+        map.addControl(searchControl);
+
+        let homeButton;
+        const resetViewControl = L.Control.extend({
+            options: {
+                position: 'topleft'
+            },
+            onAdd: function (map) {
+                const container = L.DomUtil.create('div', 'leaflet-bar leaflet-control leaflet-control-custom');
+                homeButton = container; 
+                container.title = "Reset View";
+                container.innerHTML = `<a href="#" role="button"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16"><path d="M8.354 1.146a.5.5 0 0 0-.708 0l-6 6A.5.5 0 0 0 1.5 7.5v7a.5.5 0 0 0 .5.5h4.5a.5.5 0 0 0 .5-.5v-4h2v4a.5.5 0 0 0 .5.5H14a.5.5 0 0 0 .5-.5v-7a.5.5 0 0 0-.146-.354L13 5.793V2.5a.5.5 0 0 0-.5-.5h-1a.5.5 0 0 0-.5.5v1.293L8.354 1.146zM2.5 14V7.707l5.5-5.5 5.5 5.5V14H10v-4a.5.5 0 0 0-.5-.5h-3a.5.5 0 0 0-.5.5v4H2.5z"/></svg></a>`;
+                
+                L.DomEvent.on(container, 'click', function(e) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    map.setView([62, -96], 4);
+                });
+
+                return container;
+            }
+        });
+        map.addControl(new resetViewControl());
+
+
+        let loadedLayers = {}; 
+        let activeYear = null;
+        let activeLayerKey = null; 
+        let currentIndicator;
+        let indicatorScales = {};
+        let allIndicators = []; 
+        let clickedFeature = null;
+        let clickedLayer = null;
+        let rankingChart = null;
+        const idKeys = ['CDUID', 'PRUID', 'CSDUID', 'CTUID', 'CMAUID', 'CMAPUID'];
+        const nameKeys = ['CDNAME', 'PRNAME', 'CSDNAME', 'CTNAME', 'CMANAME'];
+        const layerOrder = ['PR_', 'CMA_', 'CD_', 'CSD_', 'CT_'];
+        
+        const indicatorNameMap = {
+            'aboriginal_population_count': 'indigenous_population_count',
+            'aboriginal_population': 'indigenous_population',
+            'educational_disadvantage_aged_20_24_count': 'educational_disadvantage_youth_20_24_count',
+            'educational_disadvantage_aged_20_24': 'educational_disadvantage_youth_20_24',
+            'educational_assets_aged_20_34_count': 'educational_assets_youth_20_34_count',
+            'educational_assets_aged_20_34': 'educational_assets_youth_20_34',
+            'educational_assets_aged_35_64_count': 'educational_assets_adults_35_64_count',
+            'educational_assets_aged_35_64': 'educational_assets_adults_35_64',
+            'youth_unemployment_aged_20_34_count': 'youth_unemployment_20_34_count',
+            'youth_unemployment_aged_20_34': 'youth_unemployment_20_34',
+            'adult_unemployment_aged_35_64_count': 'adult_unemployment_35_64_count',
+            'adult_unemployment_aged_35_64': 'adult_unemployment_35_64',
+            'aboriginal_youth_aged_15_24_count': 'indigenous_youth_aged_15_24_count',
+            'aboriginal_youth_aged_15_24': 'indigenous_youth_aged_15_24',
+            'low_wage_employment_25plus_count': 'low_wage_employment_25_count',
+            'low_wage_employment_25plus': 'low_wage_employment_25',
+            'avg_after-tax_income_25plus': 'avg_after_tax_income_25_over'
+        };
+
+        const fileInput = document.getElementById('file-input');
+        const indicatorSelect = document.getElementById('indicator-select');
+        const indicatorContainer = document.getElementById('indicator-selector-container');
+        const yearControlContainer = document.getElementById('year-control-container');
+        const layerControlContainer = document.getElementById('layer-control-container');
+        const infoBox = document.getElementById('info-box');
+        const legend = document.getElementById('legend');
+        const dataSidebar = document.getElementById('data-sidebar');
+        const messageBox = document.getElementById('message-box');
+        
+        const layerNameMap = {
+            'PR_': 'Province', 'CMA_': 'Census Metropolitan Area', 'CD_': 'Census Division',
+            'CSD_': 'Census Subdivision', 'CT_': 'Census Tract'
+        };
+
+        const layerButtonNameMap = {
+            'PR_': 'Province', 'CMA_': 'CMA', 'CD_': 'Census Division',
+            'CSD_': 'Census Subdivision', 'CT_': 'Census Tract'
+        };
+        
+        const fallbackZoomLevels = {
+            'PR_': 5,  // Province - least zoom
+            'CD_': 7,  // Census Division
+            'CMA_': 8,  // CMA
+            'CSD_': 10, // Census Subdivision
+            'CT_': 12  // Census Tract - most zoom
+        };
+
+        function showMessage(text, color) {
+            const colorClasses = {
+                green: 'bg-green-100 text-green-800', red: 'bg-red-100 text-red-800',
+                blue: 'bg-blue-100 text-blue-800', orange: 'bg-orange-100 text-orange-800'
+            };
+            messageBox.textContent = text;
+            messageBox.className = 'mt-2 text-sm p-2 rounded-lg ' + (colorClasses[color] || 'bg-gray-100 text-gray-800');
+        }
+
+        function standardizeProperties(properties, year) {
+            if (year !== '2011') return;
+            for (const [oldName, newName] of Object.entries(indicatorNameMap)) {
+                if (properties.hasOwnProperty(oldName)) {
+                    properties[newName] = properties[oldName];
+                    delete properties[oldName];
+                }
+            }
+            if (properties.hasOwnProperty('low_income_15-24_count')) delete properties['low_income_15-24_count'];
+            if (properties.hasOwnProperty('low_income_15-24')) delete properties['low_income_15-24'];
+        }
+
+        function isCurrencyIndicator(indicatorName) { return indicatorName && indicatorName.toLowerCase() === 'avg_after_tax_income_25_over'; }
+
+        function isPercentageIndicator(indicatorName) {
+            const lowerName = indicatorName.toLowerCase();
+            return !lowerName.endsWith('_count') && !isCurrencyIndicator(lowerName) && lowerName !== 'total_pop';
+        }
+
+        function formatValue(value, indicator) {
+            const numValue = parseFloat(value);
+            if (isNaN(numValue) || numValue === null) return 'N/A';
+            if (isPercentageIndicator(indicator)) return (numValue * 100).toFixed(1) + '%';
+            if (isCurrencyIndicator(indicator)) return '$' + Math.round(numValue).toLocaleString();
+            return Math.round(numValue).toLocaleString();
+        }
+
+        function formatIndicatorName(name) {
+             let formattedName = name.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+             if (isPercentageIndicator(name)) formattedName += ' (%)';
+             else if (name.toLowerCase().endsWith('count') || name.toLowerCase() === 'total_pop') formattedName = formattedName.replace(' Count', '') + ' (Count)';
+             else if (isCurrencyIndicator(name)) formattedName += ' ($)';
+             formattedName = formattedName.replace(/(\d+)\s(\d+)/g, '$1-$2');
+             return formattedName;
+        }
+
+        function onEachFeature(feature, layer) {
+            layer.on({ mouseover: highlightFeature, mouseout: resetHighlight, click: handleFeatureClick });
+        }
+        
+        function processData(dataObject, filename, isFirstFile) {
+            const yearMatch = filename.match(/_(\d{4})/);
+            const year = yearMatch ? yearMatch[1] : 'Unknown';
+
+            const isTopoJSON = dataObject.type === 'Topology' && dataObject.objects;
+            const geojson = isTopoJSON 
+                ? topojson.feature(dataObject, dataObject.objects[Object.keys(dataObject.objects)[0]]) 
+                : dataObject;
+
+            if (!geojson || !geojson.features) {
+                showMessage(`Error: Invalid or empty GeoJSON data in ${filename}.`, 'red');
+                return;
+            }
+            
+            geojson.features.forEach(feature => { standardizeProperties(feature.properties, year); });
+
+            if (!loadedLayers[year]) loadedLayers[year] = {};
+            loadedLayers[year][filename] = { geojson: geojson, layer: null };
+
+            if (isFirstFile) {
+                const properties = geojson.features.length > 0 ? geojson.features[0].properties : {};
+                allIndicators = Object.keys(properties).filter(p => !idKeys.includes(p.toUpperCase()) && !nameKeys.includes(p.toUpperCase()) && properties[p] !== null && !isNaN(parseFloat(properties[p]))).sort();
+                const selectableIndicators = allIndicators.filter(ind => !ind.toLowerCase().endsWith('_count') && ind.toLowerCase() !== 'total_pop');
+                
+                if (selectableIndicators.length > 0) {
+                    indicatorSelect.innerHTML = '';
+                    selectableIndicators.forEach(ind => {
+                        const option = document.createElement('option');
+                        option.value = ind;
+                        option.textContent = formatIndicatorName(ind);
+                        indicatorSelect.appendChild(option);
+                    });
+                    currentIndicator = selectableIndicators[0];
+                    indicatorContainer.classList.remove('hidden');
+                    
+                    allIndicators.forEach(indicator => {
+                        const values = geojson.features.map(f => parseFloat(f.properties[indicator])).filter(v => !isNaN(v) && isFinite(v));
+                        if (values.length > 0) indicatorScales[indicator] = chroma.scale('viridis').domain(getBreaks(values, 5));
+                    });
+                }
+            }
+
+            updateYearControl();
+            if (!activeYear) {
+                setActiveYear(year);
+            } else {
+                updateLayerControl();
+                if (year === activeYear && (!activeLayerKey || !loadedLayers[activeYear][activeLayerKey])) {
+                    setActiveLayer(filename);
+                }
+            }
+            showMessage(`${filename} loaded.`, 'green');
+        }
+
+        function handleFileSelect(event) {
+            if (!event.target.files.length) return;
+            const files = Array.from(event.target.files);
+            const totalFiles = files.length;
+            let loadCounter = 0;
+            const isFirstUpload = Object.keys(loadedLayers).length === 0;
+            let firstFileSetupDone = !isFirstUpload;
+            files.forEach((file) => {
+                showMessage(`Loading ${file.name}...`, 'blue');
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    const isFirstFileForIndicatorSetup = !firstFileSetupDone;
+                    if (isFirstFileForIndicatorSetup) firstFileSetupDone = true;
+                    
+                    const processAndCount = (dataObject) => {
+                        try {
+                            processData(dataObject, file.name, isFirstFileForIndicatorSetup);
+                            loadCounter++;
+                            if (loadCounter === totalFiles) {
+                                const latestYear = Object.keys(loadedLayers).sort((a, b) => b - a)[0];
+                                if (latestYear) {
+                                    setActiveYear(latestYear);
+                                    showMessage('All files loaded and map updated.', 'green');
+                                }
+                            }
+                        } catch(err) {
+                             showMessage(`Error processing ${file.name}: ${err.message}`, 'red');
+                             loadCounter++;
+                        }
+                    };
+                    try {
+                        if (file.name.endsWith('.zip')) {
+                            shp(e.target.result).then(processAndCount).catch(err => {
+                                showMessage(`Error parsing shapefile in ${file.name}: ${err.message}`, 'red');
+                                loadCounter++;
+                                if (loadCounter === totalFiles) {
+                                    const latestYear = Object.keys(loadedLayers).sort((a, b) => b - a)[0];
+                                    if (latestYear) setActiveYear(latestYear);
+                                }
+                            });
+                        } else {
+                            const parsedData = JSON.parse(e.target.result);
+                            processAndCount(parsedData);
+                        }
+                    } catch (error) { 
+                        showMessage(`Error parsing ${file.name}: ${error.message}`, 'red');
+                        loadCounter++;
+                    }
+                };
+                reader.onerror = () => {
+                     showMessage(`Error reading ${file.name}.`, 'red');
+                     loadCounter++;
+                }
+                if (file.name.endsWith('.zip')) reader.readAsArrayBuffer(file);
+                else reader.readAsText(file);
+            });
+        }
+        
+        function cleanProvinceName(name) {
+            if (!name || typeof name !== 'string') return '';
+            return name.includes(' / ') ? name.split(' / ')[0] : name;
+        }
+
+        function getRegionName(properties, layerKey) {
+            const layerType = getLayerType(layerKey);
+            switch (layerType) {
+                case 'PR_': return cleanProvinceName(properties.PRNAME) || 'Unnamed Province';
+                case 'CMA_': return properties.CMANAME || 'Unnamed CMA';
+                case 'CD_': return properties.CDNAME || 'Unnamed Census Division';
+                case 'CSD_': return properties.CSDNAME || 'Unnamed Census Subdivision';
+                case 'CT_': return properties.CTNAME || 'Unnamed Census Tract';
+                default:
+                    return properties.CMANAME || properties.CTNAME || properties.CSDNAME || properties.CDNAME || cleanProvinceName(properties.PRNAME) || 'Region';
+            }
+        }
+
+        function getRegionUID(properties, layerKey) {
+            const layerType = getLayerType(layerKey);
+             switch (layerType) {
+                case 'PR_': return properties.PRUID || 'N/A';
+                case 'CMA_': return properties.CMAUID || 'N/A';
+                case 'CD_': return properties.CDUID || 'N/A';
+                case 'CSD_': return properties.CSDUID || 'N/A';
+                case 'CT_': return properties.CTUID || 'N/A';
+                default: return 'N/A';
+            }
+        }
+
+        function getLayerType(filename) {
+            if (!filename) return null;
+            const name = filename.toUpperCase();
+            for(const prefix of layerOrder) { if(name.includes(prefix)) return prefix; }
+            return null;
+        }
+
+        function updateYearControl() {
+            yearControlContainer.innerHTML = '<label class="block text-sm font-medium text-gray-700 mb-2">2. Select Year</label><div class="flex flex-wrap"></div>';
+            const container = yearControlContainer.querySelector('div');
+            const years = Object.keys(loadedLayers).sort((a, b) => b - a);
+            years.forEach(year => {
+                const div = document.createElement('div');
+                div.className = 'radio-control';
+                div.innerHTML = `<input type="radio" name="year-select" id="radio-year-${year}" value="${year}" ${year === activeYear ? 'checked' : ''}>
+                                         <label for="radio-year-${year}">${year}</label>`;
+                container.appendChild(div);
+                div.querySelector('input').onchange = () => setActiveYear(year);
+            });
+        }
+
+        function updateLayerControl() {
+            if (!activeYear || !loadedLayers[activeYear]) {
+                layerControlContainer.innerHTML = ''; return;
+            }
+            layerControlContainer.innerHTML = '<label class="block text-sm font-medium text-gray-700 mb-2">3. Select Layer</label><div class="grid grid-cols-2 gap-2"></div>';
+            const container = layerControlContainer.querySelector('div');
+            const availableLayers = Object.keys(loadedLayers[activeYear]);
+            const layoutOrder = ['PR_', '', 'CD_', 'CSD_', 'CMA_', 'CT_'];
+            const layerFileMap = {};
+            availableLayers.forEach(filename => {
+                const type = getLayerType(filename);
+                if (type) layerFileMap[type] = filename;
+            });
+            layoutOrder.forEach(prefix => {
+                const div = document.createElement('div');
+                if (prefix === '') { container.appendChild(div); return; }
+                div.className = 'radio-control';
+                const filename = layerFileMap[prefix];
+                if (filename) {
+                    const id = `radio-${filename.replace(/[^a-zA-Z0-9]/g, "")}`;
+                    div.innerHTML = `<input type="radio" name="layer-select" id="${id}" value="${filename}" ${filename === activeLayerKey ? 'checked' : ''}>
+                                                 <label for="${id}">${layerButtonNameMap[prefix]}</label>`;
+                    div.querySelector('input').onchange = () => setActiveLayer(filename);
+                } else {
+                    div.innerHTML = `<label class="disabled">${layerButtonNameMap[prefix] || ''}</label>`;
+                }
+                container.appendChild(div);
+            });
+        }
+
+        function setActiveYear(year) {
+            clickedFeature = null;
+            highlightClickedFeature(null);
+            const lastActiveLayerType = activeLayerKey ? getLayerType(activeLayerKey) : null;
+            if (activeLayerKey && loadedLayers[activeYear] && loadedLayers[activeYear][activeLayerKey] && loadedLayers[activeYear][activeLayerKey].layer) {
+                map.removeLayer(loadedLayers[activeYear][activeLayerKey].layer);
+            }
+            activeYear = year;
+            updateYearControl(); 
+            updateLayerControl();
+            let nextLayerKey = null;
+            if (lastActiveLayerType && loadedLayers[activeYear]) nextLayerKey = Object.keys(loadedLayers[activeYear]).find(key => getLayerType(key) === lastActiveLayerType);
+            if (!nextLayerKey && loadedLayers[year]) {
+                const sortedLayers = Object.keys(loadedLayers[year]).sort((a, b) => layerOrder.findIndex(p => a.toUpperCase().includes(p)) - layerOrder.findIndex(p => b.toUpperCase().includes(p)));
+                nextLayerKey = sortedLayers[0];
+            }
+            if (nextLayerKey) {
+                setActiveLayer(nextLayerKey);
+            } else {
+                 if (activeLayerKey) {
+                     if(loadedLayers[activeYear] && loadedLayers[activeYear][activeLayerKey] && loadedLayers[activeYear][activeLayerKey].layer) {
+                         map.removeLayer(loadedLayers[activeYear][activeLayerKey].layer);
+                     }
+                     activeLayerKey = null;
+                 }
+                legend.classList.add('hidden');
+            }
+        }
+
+        function setActiveLayer(filename) {
+            map.setView([62, -96], 4);
+            dataSidebar.classList.remove('visible');
+            clickedFeature = null;
+            highlightClickedFeature(null);
+            updateLegendIndicator();
+
+            if (activeLayerKey && loadedLayers[activeYear] && loadedLayers[activeYear][activeLayerKey] && loadedLayers[activeYear][activeLayerKey].layer) {
+                map.removeLayer(loadedLayers[activeYear][activeLayerKey].layer);
+            }
+            activeLayerKey = filename;
+            updateLayerControl();
+            updateMapStyles();
+        }
+        
+        function updateMapStyles() {
+            if (!activeYear || !activeLayerKey || !loadedLayers[activeYear] || !loadedLayers[activeYear][activeLayerKey] || !currentIndicator) return;
+            
+            if (loadedLayers[activeYear][activeLayerKey].layer) {
+                map.removeLayer(loadedLayers[activeYear][activeLayerKey].layer);
+            }
+
+            const geojson = loadedLayers[activeYear][activeLayerKey].geojson;
+
+            const values = geojson.features.map(f => parseFloat(f.properties[currentIndicator])).filter(v => !isNaN(v) && isFinite(v));
+            
+            if (values.length === 0) {
+                const newLayer = L.geoJSON(geojson, { style: styleFeature(null, null), onEachFeature: onEachFeature }).addTo(map);
+                loadedLayers[activeYear][activeLayerKey].layer = newLayer;
+                legend.classList.add('hidden');
+                showMessage(`Indicator "${formatIndicatorName(currentIndicator)}" not found in ${activeLayerKey} data.`, 'orange');
+                return;
+            }
+            
+            const currentScale = chroma.scale('viridis').domain(getBreaks(values, 5));
+            indicatorScales[currentIndicator] = currentScale;
+
+            const newLayer = L.geoJSON(geojson, { 
+                style: (f) => styleFeature(f, currentScale), 
+                onEachFeature: onEachFeature 
+            }).addTo(map);
+            
+            loadedLayers[activeYear][activeLayerKey].layer = newLayer;
+            updateLegend(currentScale, currentIndicator);
+        }
+
+        
+        function getBreaks(data, numBreaks) {
+             const sortedData = [...new Set(data)].sort((a, b) => a - b);
+             if (sortedData.length === 0) return [0, 1];
+             const min = sortedData[0];
+             const max = sortedData[sortedData.length - 1];
+             if (sortedData.length < numBreaks) return [min, max];
+             const breaks = [];
+             for (let i = 0; i < numBreaks; i++) { breaks.push(min + (i / (numBreaks - 1)) * (max - min)); }
+             return breaks;
+        }
+
+        function styleFeature(feature, scale) {
+            let value = 'N/A';
+            if (feature) value = parseFloat(feature.properties[currentIndicator]);
+            return {
+                fillColor: (feature && currentIndicator && !isNaN(value) && scale) ? scale(value).hex() : '#dddddd',
+                weight: 1, opacity: 1, color: 'white', dashArray: '3', fillOpacity: 0.75
+            };
+        }
+        
+        function updateLegend(scale, indicator) {
+            const domain = scale.domain();
+            const colors = scale.colors(5);
+            let gradient = 'linear-gradient(to right, ' + colors.join(', ') + ')';
+            legend.innerHTML = `<h4>${formatIndicatorName(indicator).replace(/ \(.+\)/,'')}</h4>
+                                     <div class="legend-scale-container" style="position: relative;">
+                                         <div class="color-bar" style="background: ${gradient};"></div>
+                                     </div>
+                                     <div class="labels">
+                                         <span>${formatValue(domain[0], indicator)}</span>
+                                         <span>${formatValue(domain[domain.length - 1], indicator)}</span>
+                                     </div>`;
+            legend.classList.remove('hidden');
+            updateLegendIndicator();
+        }
+
+        function updateLegendIndicator() {
+            const existingMarker = document.getElementById('legend-marker');
+            if(existingMarker) existingMarker.remove();
+            if (!clickedFeature || legend.classList.contains('hidden') || !indicatorScales[currentIndicator]) return;
+            const scale = indicatorScales[currentIndicator];
+            const domain = scale.domain();
+            const min = domain[0];
+            const max = domain[domain.length - 1];
+            const value = parseFloat(clickedFeature.properties[currentIndicator]);
+            if (isNaN(value) || value < min || value > max) return;
+            const positionPercent = ((value - min) / (max - min)) * 100;
+            const marker = document.createElement('div');
+            marker.id = 'legend-marker';
+            marker.className = 'legend-marker';
+            marker.style.left = `${positionPercent}%`;
+            const container = legend.querySelector('.legend-scale-container');
+            if(container) container.appendChild(marker);
+        }
+        
+        function highlightFeature(e) {
+            const layer = e.target;
+            layer.setStyle({ weight: 3, color: '#333', dashArray: '', fillOpacity: 0.9 });
+            if (!L.Browser.ie) layer.bringToFront();
+            updateInfoBox(e);
+        }
+
+        function resetHighlight(e) {
+            if (e.target !== clickedLayer) {
+                if (activeYear && activeLayerKey && loadedLayers[activeYear][activeLayerKey] && loadedLayers[activeYear][activeLayerKey].layer) {
+                    loadedLayers[activeYear][activeLayerKey].layer.resetStyle(e.target);
+                }
+            }
+            infoBox.classList.remove('visible');
+        }
+
+        function highlightClickedFeature(layer) {
+            if (clickedLayer) {
+                 if (activeYear && activeLayerKey && loadedLayers[activeYear][activeLayerKey] && loadedLayers[activeYear][activeLayerKey].layer) {
+                      loadedLayers[activeYear][activeLayerKey].layer.resetStyle(clickedLayer);
+                 }
+            }
+            if (layer) {
+                layer.setStyle({ weight: 3, color: '#333', dashArray: '', fillOpacity: 0.9 });
+                if (!L.Browser.ie) { layer.bringToFront(); }
+            }
+            clickedLayer = layer;
+        }
+
+        function handleFeatureClick(e) {
+            const target = e.target;
+            const latlng = e.latlng;
+
+            if (e && e.stopPropagation) {
+                L.DomEvent.stopPropagation(e);
+            }
+
+            clickedFeature = target.feature;
+
+            highlightClickedFeature(target);
+            populateDataSidebar(clickedFeature.properties);
+            updateLegendIndicator();
+            dataSidebar.classList.add('visible'); 
+
+            setTimeout(() => {
+                try {
+                    const bounds = target.getBounds();
+                    if (!bounds || !bounds.isValid()) {
+                        throw new Error("Bounds are not valid for this feature.");
+                    }
+
+                    map.fitBounds(bounds, { 
+                        paddingTopLeft: [document.getElementById('sidebar').offsetWidth + 20, 40],
+                        paddingBottomRight: [dataSidebar.offsetWidth + 20, 40]
+                    });
+
+                } catch (err) {
+                    console.error("Could not zoom to feature. Using fallback.", err);
+                    const layerType = getLayerType(activeLayerKey);
+                    const fallbackZoom = fallbackZoomLevels[layerType] || 8; 
+                    map.flyTo(latlng, fallbackZoom, {animate: true, duration: 1});
+                }
+            }, 350); 
+
+            if (homeButton) {
+                homeButton.classList.add('rattle-animation');
+                setTimeout(() => {
+                    homeButton.classList.remove('rattle-animation');
+                }, 500);
+            }
+        }
+        
+        function getTopBottomFive(indicator) {
+            if (!activeYear || !activeLayerKey || !loadedLayers[activeYear] || !loadedLayers[activeYear][activeLayerKey]) {
+                return { top5: [], bottom5: [] };
+            }
+
+            const features = loadedLayers[activeYear][activeLayerKey].geojson.features;
+            const validFeatures = features
+                .map(f => ({ name: getRegionName(f.properties, activeLayerKey), value: parseFloat(f.properties[indicator]), uid: getRegionUID(f.properties, activeLayerKey) }))
+                .filter(item => item.value !== null && !isNaN(item.value) && isFinite(item.value));
+
+            validFeatures.sort((a, b) => b.value - a.value);
+
+            const top5 = validFeatures.slice(0, 5);
+            const bottom5 = validFeatures.slice(-5).reverse();
+
+            return { top5, bottom5 };
+        }
+        
+        function createOrUpdateChart(top5, bottom5, selectedFeature = null) {
+            const chartContainer = document.getElementById('ranking-chart-container');
+            if (!chartContainer) return;
+
+            let datasets = [];
+            let labels = [];
+            const backgroundColors = [];
+            const borderColors = [];
+            let chartData = [];
+
+            const top5UIDs = top5.map(i => i.uid);
+            const bottom5UIDs = bottom5.map(i => i.uid);
+
+            let combinedData = [...top5, ...bottom5];
+            
+            if (selectedFeature) {
+                const selectedUID = getRegionUID(selectedFeature.properties, activeLayerKey);
+                if (!combinedData.some(d => d.uid === selectedUID)) {
+                    combinedData.push({
+                        name: getRegionName(selectedFeature.properties, activeLayerKey),
+                        value: parseFloat(selectedFeature.properties[currentIndicator]),
+                        uid: selectedUID
+                    });
+                }
+            }
+            
+            combinedData.sort((a,b) => b.value - a.value);
+
+            combinedData.forEach(item => {
+                labels.push(item.name);
+                datasets.push(item.value);
+                chartData.push(item);
+                
+                let bgColor = 'rgba(119, 119, 119, 0.6)';
+                let borderColor = 'rgba(119, 119, 119, 1)';
+
+                if(top5UIDs.includes(item.uid)) {
+                    bgColor = 'rgba(40, 167, 69, 0.6)';
+                    borderColor = 'rgba(40, 167, 69, 1)';
+                } else if (bottom5UIDs.includes(item.uid)) {
+                    bgColor = 'rgba(220, 53, 69, 0.6)';
+                    borderColor = 'rgba(220, 53, 69, 1)';
+                }
+                
+                if (selectedFeature) {
+                    const selectedUID = getRegionUID(selectedFeature.properties, activeLayerKey);
+                    if (item.uid === selectedUID) {
+                        bgColor = 'rgba(255, 193, 7, 0.8)';
+                        borderColor = 'rgba(255, 193, 7, 1)';
+                    }
+                }
+                backgroundColors.push(bgColor);
+                borderColors.push(borderColor);
+            });
+
+
+            if (rankingChart) {
+                rankingChart.destroy();
+            }
+            
+            const ctx = document.getElementById('rankingChart').getContext('2d');
+            rankingChart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: formatIndicatorName(currentIndicator),
+                        data: datasets,
+                        backgroundColor: backgroundColors,
+                        borderColor: borderColors,
+                        borderWidth: 2
+                    }]
+                },
+                options: {
+                    indexAxis: 'y',
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    onClick: (event, elements) => {
+                        if (elements.length === 0) return;
+                        const elementIndex = elements[0].index;
+                        const clickedUID = chartData[elementIndex].uid;
+
+                        const activeGeoJsonLayer = loadedLayers[activeYear][activeLayerKey].layer;
+                        let targetLayer = null;
+
+                        activeGeoJsonLayer.eachLayer(layer => {
+                            if (getRegionUID(layer.feature.properties, activeLayerKey) === clickedUID) {
+                                targetLayer = layer;
+                            }
+                        });
+
+                        if (targetLayer) {
+                            handleFeatureClick({ 
+                                target: targetLayer,
+                                latlng: targetLayer.getBounds().getCenter()
+                            });
+                        }
+                    },
+                    plugins: {
+                        legend: {
+                            display: false
+                        },
+                        title: {
+                            display: true,
+                            text: `Top and Bottom 5 for ${formatIndicatorName(currentIndicator)}`
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    let label = context.dataset.label || '';
+                                    if (label) {
+                                        label = label.replace(/ \(.+\)/, '');
+                                        label += ': ';
+                                    }
+                                    if (context.parsed.x !== null) {
+                                        label += formatValue(context.parsed.x, currentIndicator);
+                                    }
+                                    return label;
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        x: {
+                           ticks: {
+                               callback: function(value, index, values) {
+                                   if(isPercentageIndicator(currentIndicator)) {
+                                       return (value * 100).toFixed(0) + '%';
+                                   }
+                                   if (isCurrencyIndicator(currentIndicator)) {
+                                       return '$' + Math.round(value / 1000) + 'k';
+                                   }
+                                   return Math.round(value).toLocaleString();
+                               }
+                           }
+                        }
+                    }
+                }
+            });
+        }
+
+        function populateDataSidebar(properties) {
+            let content = `<div class="flex justify-between items-center mb-4">
+                                     <h3 class="text-xl font-semibold">${getRegionName(properties, activeLayerKey)} - ${activeYear}</h3>
+                                     <button id="close-data-sidebar" class="text-gray-500 hover:text-gray-800 text-2xl leading-none">&times;</button>
+                                   </div>
+                                   <div>
+                                     <button id="open-download-modal-btn" class="download-btn">Download CSV</button>
+                                   </div>
+                                   <div id="data-sidebar-content">
+                                     <div id="ranking-chart-container" style="height: 400px; margin-bottom: 1rem;">
+                                        <canvas id="rankingChart"></canvas>
+                                     </div>
+                                     <table id="indicator-table">
+                                     <thead><tr><th>Indicator</th><th>Count</th><th>% or $</th></tr></thead>
+                                     <tbody>`;
+            if (properties.hasOwnProperty('total_pop')) {
+                const formattedName = "Total Population";
+                content += `<tr><td title="${formattedName}">${formattedName}</td>${getValueCell(properties, 'total_pop')}<td class="text-right">100.0%</td></tr>`;
+            }
+            const indicatorPairs = {};
+            const otherIndicators = allIndicators.filter(ind => ind.toLowerCase() !== 'total_pop');
+            otherIndicators.forEach(indicator => {
+                const baseName = indicator.replace(/_count$/i, '');
+                if (!indicatorPairs[baseName]) indicatorPairs[baseName] = {};
+                if (indicator.toLowerCase().endsWith('count')) indicatorPairs[baseName].count = indicator;
+                else indicatorPairs[baseName].percent = indicator;
+            });
+            for (const baseName of Object.keys(indicatorPairs).sort()) {
+                const countInd = indicatorPairs[baseName].count;
+                const percentInd = indicatorPairs[baseName].percent;
+                const formattedBaseName = formatIndicatorName(baseName).replace(/ \(.+\)/, '');
+                let rowClass = (currentIndicator === percentInd) ? 'sidebar-highlight' : '';
+                
+                let dataAttribute = percentInd ? `data-indicator="${percentInd}"` : '';
+
+                content += `<tr class="${rowClass}" ${dataAttribute}><td title="${formattedBaseName}">${formattedBaseName}</td>${getValueCell(properties, countInd)}${getValueCell(properties, percentInd)}</tr>`;
+            }
+            content += '</tbody></table></div>';
+            dataSidebar.innerHTML = content;
+            
+            const { top5, bottom5 } = getTopBottomFive(currentIndicator);
+            createOrUpdateChart(top5, bottom5, clickedFeature);
+
+            document.getElementById('close-data-sidebar').onclick = () => {
+                clickedFeature = null;
+                highlightClickedFeature(null);
+                dataSidebar.classList.remove('visible');
+                updateLegendIndicator();
+            };
+            document.getElementById('open-download-modal-btn').onclick = () => openDownloadModal(properties);
+
+            document.getElementById('indicator-table').querySelector('tbody').addEventListener('click', (event) => {
+                const row = event.target.closest('tr');
+                if (row && row.dataset.indicator) {
+                    const newIndicator = row.dataset.indicator;
+                    changeIndicator(newIndicator, true); // Keep selection when changing indicator from table
+                }
+            });
+        }
+
+        function getValueCell(properties, indicator) {
+             if (!indicator) return '<td></td>';
+             const rawValue = properties[indicator];
+             const numValue = parseFloat(rawValue);
+             if (rawValue == null || isNaN(numValue)) return `<td class="text-right">N/A</td>`;
+             const displayValue = formatValue(numValue, indicator);
+             if (indicator.toLowerCase().endsWith('_count') || indicator.toLowerCase() === 'total_pop') return `<td class="text-right">${displayValue}</td>`;
+             const scale = indicatorScales[indicator];
+             const bgColor = scale ? scale(numValue).hex() : 'transparent';
+             const textColor = scale && chroma(bgColor).luminance() > 0.5 ? 'black' : 'white';
+             return `<td style="background-color:${bgColor}; color:${textColor};" class="text-right">${displayValue}</td>`;
+        }
+        
+        // NEW: Refactored function to handle all indicator changes
+        function changeIndicator(newIndicator, keepSelection = false) {
+            if (!newIndicator || currentIndicator === newIndicator) {
+                return; // No change needed
+            }
+
+            currentIndicator = newIndicator;
+            indicatorSelect.value = newIndicator; // Keep dropdown in sync
+
+            updateMapStyles(); // This updates map colors and legend for new indicator
+
+            if (keepSelection && clickedFeature) {
+                // Re-populate the sidebar for the same feature with the new indicator
+                populateDataSidebar(clickedFeature.properties);
+                updateLegendIndicator();
+            } else {
+                // This is the reset path for manual dropdown changes or other resets
+                dataSidebar.classList.remove('visible');
+                clickedFeature = null;
+                highlightClickedFeature(null);
+                updateLegendIndicator();
+            }
+        }
+
+        function downloadCSV(options) {
+            const { years, layerTypes, provinces, indicators } = options;
+            const filename = `${provinces.length === 1 ? provinces[0].name.toLowerCase().replace(/\s/g, '_') : 'custom'}_data.csv`;
+            const headers = ['Year', 'UID', 'Map Layer', 'Geography Name', ...indicators.map(ind => `"${formatIndicatorName(ind)}"` )];
+            let csvRows = [headers.join(',')];
+
+            years.forEach(year => {
+                layerTypes.forEach(layerType => {
+                    const layerKey = Object.keys(loadedLayers[year] || {}).find(key => getLayerType(key) === layerType);
+                    if (layerKey) {
+                        const layerData = loadedLayers[year][layerKey];
+                        if (layerData && layerData.geojson && layerData.geojson.features) {
+                             const geojson = layerData.geojson;
+                            
+                             const featuresToInclude = geojson.features.filter(f => provinces.some(p => p.uid === f.properties.PRUID));
+                             featuresToInclude.forEach(feature => {
+                                const row = [
+                                     year,
+                                     getRegionUID(feature.properties, layerKey),
+                                     layerNameMap[layerType],
+                                     getRegionName(feature.properties, layerKey),
+                                     ...indicators.map(ind => feature.properties[ind] ?? 'N/A')
+                                ];
+                                csvRows.push(row.map(val => `"${String(val).replace(/"/g, '""')}"`).join(','));
+                             });
+                        }
+                    }
+                });
+            });
+
+            if (csvRows.length <= 1) {
+                showMessage('No data found for the selected criteria.', 'orange');
+                return;
+            }
+            const csvContent = csvRows.join('\n');
+            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement("a");
+            const url = URL.createObjectURL(blob);
+            link.setAttribute("href", url);
+            link.setAttribute("download", filename);
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+
+        const modalOverlay = document.getElementById('download-modal-overlay');
+        const dlYearSelect = document.getElementById('dl-year-select');
+        const dlLayerSelect = document.getElementById('dl-layer-select');
+        const dlProvinceSelect = document.getElementById('dl-province-select');
+        const dlIndicatorSelect = document.getElementById('dl-indicator-select');
+
+        function openDownloadModal(clickedProperties) {
+            dlYearSelect.innerHTML = '';
+            Object.keys(loadedLayers).sort((a,b) => b-a).forEach(year => {
+                const option = new Option(year, year);
+                if (year === activeYear) option.selected = true;
+                dlYearSelect.add(option);
+            });
+            dlLayerSelect.innerHTML = '';
+            const allLayerTypes = new Set();
+            Object.values(loadedLayers).forEach(yearData => Object.keys(yearData).forEach(key => allLayerTypes.add(getLayerType(key))));
+            layerOrder.forEach(prefix => {
+                if (allLayerTypes.has(prefix)) {
+                    const option = new Option(layerNameMap[prefix], prefix);
+                    if(prefix === getLayerType(activeLayerKey)) option.selected = true;
+                    dlLayerSelect.add(option);
+                }
+            });
+            dlProvinceSelect.innerHTML = '';
+            const allProvinces = {};
+            Object.values(loadedLayers).forEach(yearData => Object.values(yearData).forEach(layer => {
+                const geojson = layer.geojson;
+                
+                 geojson.features.forEach(f => {
+                     if (f.properties.PRUID && f.properties.PRNAME) {
+                         allProvinces[f.properties.PRUID] = f.properties.PRNAME;
+                     }
+                 });
+            }));
+             Object.entries(allProvinces).sort((a,b) => cleanProvinceName(a[1]).localeCompare(cleanProvinceName(b[1]))).forEach(([uid, name]) => {
+                const option = new Option(cleanProvinceName(name), uid);
+                if (clickedProperties && uid === clickedProperties.PRUID) option.selected = true;
+                dlProvinceSelect.add(option);
+            });
+
+            dlIndicatorSelect.innerHTML = '';
+            allIndicators.forEach(ind => {
+                const option = new Option(formatIndicatorName(ind), ind, true, true);
+                dlIndicatorSelect.add(option);
+            });
+            modalOverlay.classList.remove('hidden');
+        }
+
+        function getSelectedOptions(selectElement) {
+            return Array.from(selectElement.options).filter(option => option.selected).map(option => option.value);
+        }
+
+        document.getElementById('download-modal-csv-btn').addEventListener('click', () => {
+             const selectedYears = getSelectedOptions(dlYearSelect);
+             const selectedLayers = getSelectedOptions(dlLayerSelect);
+             const selectedIndicators = getSelectedOptions(dlIndicatorSelect);
+             const selectedProvinces = Array.from(dlProvinceSelect.options).filter(opt => opt.selected).map(opt => ({uid: opt.value, name: opt.text}));
+            
+             if (selectedYears.length === 0 || selectedLayers.length === 0 || selectedProvinces.length === 0 || selectedIndicators.length === 0) {
+                showMessage("Please make at least one selection in each field.", "orange");
+                return;
+             }
+             downloadCSV({ years: selectedYears, layerTypes: selectedLayers, provinces: selectedProvinces, indicators: selectedIndicators });
+             modalOverlay.classList.add('hidden');
+        });
+        
+        document.getElementById('close-modal-btn').addEventListener('click', () => modalOverlay.classList.add('hidden'));
+        modalOverlay.addEventListener('click', (e) => {
+            if (e.target === modalOverlay) modalOverlay.classList.add('hidden');
+        });
+
+
+        function updateInfoBox(e) {
+            const properties = e.target.feature.properties;
+            const containerPoint = e.containerPoint;
+            if (properties && currentIndicator) {
+                const rawValue = properties[currentIndicator];
+                const numValue = parseFloat(rawValue);
+                let colorBox = '<span>N/A</span>';
+                if (rawValue != null && !isNaN(numValue) && indicatorScales[currentIndicator]) {
+                    const displayValue = formatValue(numValue, currentIndicator);
+                    const bgColor = indicatorScales[currentIndicator](numValue).hex();
+                    const textColor = chroma(bgColor).luminance() > 0.5 ? 'black' : 'white';
+                    colorBox = `<span style="background-color: ${bgColor}; color: ${textColor}; padding: 2px 6px; border-radius: 3px; font-weight: bold;">${displayValue}</span>`;
+                }
+                infoBox.innerHTML = `<h4>${getRegionName(properties, activeLayerKey)}</h4>
+                                     <div><strong>${formatIndicatorName(currentIndicator).replace(/ \(.+\)/,'')}:</strong> ${colorBox}</div>`;
+                infoBox.style.left = containerPoint.x + 'px';
+                infoBox.style.top = containerPoint.y + 'px';
+                infoBox.classList.add('visible');
+            } else {
+                infoBox.classList.remove('visible');
+            }
+        }
+        
+        fileInput.addEventListener('change', handleFileSelect);
+        indicatorSelect.addEventListener('change', (e) => {
+            // A manual change from the dropdown always resets the view
+            changeIndicator(e.target.value, false); 
+        });
+    });
+    </script>
+</body>
+</html>
