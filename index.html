@@ -43,7 +43,7 @@
             flex-direction: column;
             height: 100vh;
             margin: 0;
-            overflow: hidden;
+            overflow: hidden; /* Prevents scrolling on desktop */
         }
         .header {
             background-color: var(--cdp-dark-grey);
@@ -321,6 +321,69 @@
         .modal-footer { margin-top: 1.5rem; text-align: right; }
         .modal-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 1rem; }
         .modal-select { width: 100%; height: 150px; border: 1px solid #ccc; border-radius: 4px; padding: 4px; }
+
+        /* --- MOBILE RESPONSIVE STYLES --- */
+        @media (max-width: 768px) {
+            body {
+                overflow-y: auto; /* Allow body to scroll on mobile */
+                height: auto;
+            }
+            #main-content {
+                flex-direction: column; /* Stack sidebar and map vertically */
+                overflow: visible;
+                height: auto;
+            }
+            #sidebar {
+                width: 100%; /* Full width */
+                height: auto; /* Height based on content */
+                overflow-y: visible;
+                border-right: none;
+                border-bottom: 1px solid #dee2e6;
+            }
+            #map-container {
+                width: 100%;
+                height: 60vh; /* Give map a fixed portion of the screen */
+                flex-grow: 0;
+            }
+            #data-sidebar {
+                /* Override desktop styles */
+                width: 100%;
+                height: 0;
+                position: fixed; /* Stick to bottom */
+                bottom: 0;
+                left: 0;
+                right: 0;
+                z-index: 1002; /* Above header */
+                transition: height 0.3s ease-in-out;
+                border-left: none;
+                border-top: 1px solid #dee2e6;
+                padding: 0;
+            }
+            #data-sidebar.visible {
+                width: 100%;
+                height: 70vh; /* Take up more of the screen when visible */
+                padding: 1rem;
+            }
+            #data-sidebar-content {
+                 height: calc(100% - 70px); /* Adjust height considering the header inside */
+            }
+            .legend {
+                bottom: 10px;
+                right: 10px;
+            }
+             .header-title {
+                font-size: 1rem;
+            }
+            .modal-grid {
+                grid-template-columns: 1fr; /* Stack modal options vertically */
+            }
+            .modal-content {
+                width: 100vw;
+                height: 100vh;
+                max-height: 100vh;
+                border-radius: 0;
+            }
+        }
     </style>
 </head>
 <body class="bg-gray-100 text-gray-800">
@@ -633,7 +696,7 @@
                     const processAndContinue = (dataObject) => {
                         processData(dataObject, filename, isFirstFileForIndicatorSetup);
                         if (isFirstFileForIndicatorSetup) {
-                           isFirstFileForIndicatorSetup = false; // Turn off after first successful processing
+                            isFirstFileForIndicatorSetup = false; // Turn off after first successful processing
                         }
                     };
 
@@ -762,12 +825,12 @@
             if (nextLayerKey) {
                 setActiveLayer(nextLayerKey);
             } else {
-                 if (activeLayerKey) {
-                      if(loadedLayers[activeYear] && loadedLayers[activeYear][activeLayerKey] && loadedLayers[activeYear][activeLayerKey].layer) {
-                           map.removeLayer(loadedLayers[activeYear][activeLayerKey].layer);
-                      }
-                      activeLayerKey = null;
-                 }
+                if (activeLayerKey) {
+                    if(loadedLayers[activeYear] && loadedLayers[activeYear][activeLayerKey] && loadedLayers[activeYear][activeLayerKey].layer) {
+                         map.removeLayer(loadedLayers[activeYear][activeLayerKey].layer);
+                    }
+                    activeLayerKey = null;
+                }
                 legend.classList.add('hidden');
             }
         }
@@ -845,7 +908,7 @@
             let gradient = 'linear-gradient(to right, ' + colors.join(', ') + ')';
             legend.innerHTML = `<h4>${formatIndicatorName(indicator).replace(/ \(.+\)/,'')}</h4>
                                          <div class="legend-scale-container" style="position: relative;">
-                                             <div class="color-bar" style="background: ${gradient};"></div>
+                                              <div class="color-bar" style="background: ${gradient};"></div>
                                          </div>
                                          <div class="labels">
                                              <span>${formatValue(domain[0], indicator)}</span>
@@ -893,7 +956,7 @@
         function highlightClickedFeature(layer) {
             if (clickedLayer) {
                  if (activeYear && activeLayerKey && loadedLayers[activeYear][activeLayerKey] && loadedLayers[activeYear][activeLayerKey].layer) {
-                       loadedLayers[activeYear][activeLayerKey].layer.resetStyle(clickedLayer);
+                     loadedLayers[activeYear][activeLayerKey].layer.resetStyle(clickedLayer);
                  }
             }
             if (layer) {
@@ -924,11 +987,22 @@
                     if (!bounds || !bounds.isValid()) {
                         throw new Error("Bounds are not valid for this feature.");
                     }
-
-                    map.fitBounds(bounds, { 
-                        paddingTopLeft: [document.getElementById('sidebar').offsetWidth + 20, 40],
-                        paddingBottomRight: [dataSidebar.offsetWidth + 20, 40]
-                    });
+                    
+                    const isMobileView = window.innerWidth <= 768;
+                    let paddingOptions = {};
+                    
+                    if (isMobileView && dataSidebar.classList.contains('visible')) {
+                        paddingOptions = {
+                            paddingTopLeft: [10, 10],
+                            paddingBottomRight: [10, dataSidebar.offsetHeight + 10]
+                        };
+                    } else {
+                         paddingOptions = { 
+                            paddingTopLeft: [document.getElementById('sidebar').offsetWidth + 20, 40],
+                            paddingBottomRight: [dataSidebar.offsetWidth + 20, 40]
+                        };
+                    }
+                    map.fitBounds(bounds, paddingOptions);
 
                 } catch (err) {
                     console.error("Could not zoom to feature. Using fallback.", err);
@@ -1107,19 +1181,19 @@
 
         function populateDataSidebar(properties) {
             let content = `<div class="flex justify-between items-center mb-4">
-                                         <h3 class="text-xl font-semibold">${getRegionName(properties, activeLayerKey)} - ${activeYear}</h3>
-                                         <button id="close-data-sidebar" class="text-gray-500 hover:text-gray-800 text-2xl leading-none">&times;</button>
-                                       </div>
-                                       <div>
-                                         <button id="open-download-modal-btn" class="download-btn">Download CSV</button>
-                                       </div>
-                                       <div id="data-sidebar-content">
-                                         <div id="ranking-chart-container" style="height: 400px; margin-bottom: 1rem;">
-                                            <canvas id="rankingChart"></canvas>
-                                         </div>
-                                         <table id="indicator-table">
-                                         <thead><tr><th>Indicator</th><th>Count</th><th>% or $</th></tr></thead>
-                                         <tbody>`;
+                                                 <h3 class="text-xl font-semibold">${getRegionName(properties, activeLayerKey)} - ${activeYear}</h3>
+                                                 <button id="close-data-sidebar" class="text-gray-500 hover:text-gray-800 text-2xl leading-none">&times;</button>
+                                               </div>
+                                               <div>
+                                                 <button id="open-download-modal-btn" class="download-btn">Download CSV</button>
+                                               </div>
+                                               <div id="data-sidebar-content">
+                                                 <div id="ranking-chart-container" style="height: 400px; margin-bottom: 1rem;">
+                                                    <canvas id="rankingChart"></canvas>
+                                                 </div>
+                                                 <table id="indicator-table">
+                                                 <thead><tr><th>Indicator</th><th>Count</th><th>% or $</th></tr></thead>
+                                                 <tbody>`;
             if (properties.hasOwnProperty('total_pop')) {
                 const formattedName = "Total Population";
                 content += `<tr><td title="${formattedName}">${formattedName}</td>${getValueCell(properties, 'total_pop')}<td class="text-right">100.0%</td></tr>`;
@@ -1333,7 +1407,7 @@
                     colorBox = `<span style="background-color: ${bgColor}; color: ${textColor}; padding: 2px 6px; border-radius: 3px; font-weight: bold;">${displayValue}</span>`;
                 }
                 infoBox.innerHTML = `<h4>${getRegionName(properties, activeLayerKey)}</h4>
-                                         <div><strong>${formatIndicatorName(currentIndicator).replace(/ \(.+\)/,'')}:</strong> ${colorBox}</div>`;
+                                             <div><strong>${formatIndicatorName(currentIndicator).replace(/ \(.+\)/,'')}:</strong> ${colorBox}</div>`;
                 infoBox.style.left = containerPoint.x + 'px';
                 infoBox.style.top = containerPoint.y + 'px';
                 infoBox.classList.add('visible');
