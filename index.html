@@ -484,10 +484,6 @@
         }
         #infographic-container th:first-child { width: 50%; } /* Allocate more space for definition */
         #infographic-container td:nth-child(n+2) { text-align: center; }
-	#infographic-container .infographic-highlight td {
-          background-color: #e0f2f1; /* CDP Light Teal */
-          font-weight: bold;
-      	}
         #infographic-container .infographic-footer {
             margin-top: 25px; padding-top: 15px; border-top: 1px solid #ccc;
             font-size: 12px; color: #666;
@@ -1446,7 +1442,43 @@
             }
         }
         
-        
+        async function downloadPdf() {
+            if (!clickedFeature) {
+                alert("Please click on a geography first.");
+                return;
+            }
+            showMessage('Generating PDF...', 'blue');
+
+            rankingChart.options.plugins.datalabels.display = true;
+            rankingChart.update('none');
+            const rankingChartImg = rankingChart.toBase64Image();
+            rankingChart.options.plugins.datalabels.display = false;
+            rankingChart.update('none');
+
+            const histogramChartImg = histogramChart ? histogramChart.toBase64Image() : null;
+
+            const properties = clickedFeature.properties;
+            const wikiInfo = await getWikipediaInfo(properties, activeLayerKey);
+            const measureSet = allMeasuresInfo[activeYear] || {};
+            const indicatorInfo = measureSet[currentIndicator] || {};
+            const definition = indicatorInfo.definition || 'Not available.';
+            const source = indicatorInfo.source || 'Not available.';
+            const regionName = getRegionName(properties, activeLayerKey);
+            
+            const infographicContainer = document.getElementById('infographic-container');
+            
+            let wikiHtml = '';
+            if (wikiInfo.intro || (wikiInfo.imageUrls && wikiInfo.imageUrls.length > 0)) {
+                const imagesHtml = wikiInfo.imageUrls.map(url => `<img src="${url}" crossorigin="anonymous" />`).join('');
+                wikiHtml = `
+                    <h2>About ${regionName}</h2>
+                    <div class="wiki-content">
+                        ${wikiInfo.intro ? `<div class="wiki-intro">${wikiInfo.intro}</div>` : ''}
+                        ${imagesHtml ? `<div class="wiki-images">${imagesHtml}</div>` : ''}
+                    </div>
+                `;
+            }
+
             const brandingHtml = `
                 <div class="infographic-branding">
                     <img src="icon.png" style="height: 40px;" crossorigin="anonymous" />
@@ -1594,226 +1626,42 @@
             }
         }
 
-        async function prepareInfographic() {
-            if (!clickedFeature) {
-                alert("Please click on a geography first.");
-                return null;
-            }
-            showMessage('Generating infographic...', 'blue');
+        async function downloadImage() {
+            if (!clickedFeature) {
+                alert("Please click on a geography first.");
+                return;
+            }
+            showMessage('Generating Image...', 'blue');
 
-            // Temporarily show data labels on ranking chart for capture
-            rankingChart.options.plugins.datalabels.display = true;
-            rankingChart.update('none');
-            const rankingChartImg = rankingChart.toBase64Image();
-            rankingChart.options.plugins.datalabels.display = false;
-            rankingChart.update('none');
+            rankingChart.options.plugins.datalabels.display = true;
+            rankingChart.update('none');
+            const rankingChartImg = rankingChart.toBase64Image();
+            rankingChart.options.plugins.datalabels.display = false;
+            rankingChart.update('none');
 
-            const histogramChartImg = histogramChart ? histogramChart.toBase64Image() : null;
+            const histogramChartImg = histogramChart ? histogramChart.toBase64Image() : null;
 
-            const properties = clickedFeature.properties;
-            const wikiInfo = await getWikipediaInfo(properties, activeLayerKey);
-            const measureSet = allMeasuresInfo[activeYear] || {};
-            const indicatorInfo = measureSet[currentIndicator] || {};
-            const definition = indicatorInfo.definition || 'Not available.';
-            const source = indicatorInfo.source || 'Not available.';
-            const regionName = getRegionName(properties, activeLayerKey);
-            
-            const infographicContainer = document.getElementById('infographic-container');
-
-            let wikiHtml = '';
-            if (wikiInfo.intro || (wikiInfo.imageUrls && wikiInfo.imageUrls.length > 0)) {
-                const imagesHtml = wikiInfo.imageUrls.map(url => `<img src="${url}" crossorigin="anonymous" />`).join('');
-                wikiHtml = `
-                    <h2>About ${regionName}</h2>
-                    <div class="wiki-content">
-                        ${wikiInfo.intro ? `<div class="wiki-intro">${wikiInfo.intro}</div>` : ''}
-                        ${imagesHtml ? `<div class="wiki-images">${imagesHtml}</div>` : ''}
-                    </div>
-                `;
-            }
-
-            const brandingHtml = `
-                <div class="infographic-branding">
-                    <img src="icon.png" style="height: 40px;" crossorigin="anonymous" />
-                    <p>Produced by The Community Data Program</p>
-                </div>
-            `;
-            
-            infographicContainer.innerHTML = `
-                <h1>${regionName} - ${activeYear}</h1>
-                ${wikiHtml}
-                <h2>${formatIndicatorName(currentIndicator).replace(/ \(.+\)/, '')}</h2>
-                <p style="padding: 0 10px 15px 10px; font-size: 14px; line-height: 1.6;">${definition}</p>
-                <div class="chart-container">
-                    <div class="chart-wrapper">
-                        <h2>Ranking Comparison</h2>
-                        <img src="${rankingChartImg}" crossorigin="anonymous" />
-                    </div>
-                    ${histogramChartImg ? `
-                    <div class="chart-wrapper">
-                        <h2>Indicator Distribution</h2>
-                        <img src="${histogramChartImg}" crossorigin="anonymous" />
-                    </div>` : ''}
-                </div>
-                <h2>Data for Selected Area</h2>
-            `;
-
-            const uid = getRegionUID(properties, activeLayerKey);
-            let rankHeader = 'Rank';
-            if (allIndicatorRanks.has(currentIndicator)) {
-                const rankMap = allIndicatorRanks.get(currentIndicator);
-                if (rankMap.size > 0) {
-                    const total = rankMap.values().next().value.total;
-                    rankHeader = `Rank (of ${total})`;
-                }
-            }
-
-            let tableHTML = `<table id="infographic-table"><thead><tr><th>Indicator Definition</th><th>Count</th><th>% or $</th><th>${rankHeader}</th><th>Local Corr.</th><th>Global Corr.</th></tr></thead><tbody>`;
-            
-            if (properties.hasOwnProperty('total_pop')) {
-                const indicatorKey = 'total_pop';
-                const rowClass = (currentIndicator === indicatorKey) ? 'class="infographic-highlight"' : '';
-                const defInfo = measureSet[indicatorKey] || {};
-                const tableDefinition = defInfo.definition || "Total number of persons living in the geography.";
-                const countValueCell = getValueCell(properties, indicatorKey);
-                const percentValueCell = '<td></td>';
-                let rankCell = '<td>N/A</td>';
-                if (allIndicatorRanks.has(indicatorKey)) {
-                    const rankMap = allIndicatorRanks.get(indicatorKey);
-                    if (rankMap.has(uid)) {
-                        rankCell = `<td class="text-center font-bold">${rankMap.get(uid).rank}</td>`;
-                    }
-                }
-                const localCorrCell = getLocalCorrelationCell(indicatorKey);
-                const globalCorrCell = getGlobalCorrelationCell(indicatorKey);
-                tableHTML += `<tr ${rowClass}><td>${tableDefinition}</td>${countValueCell}${percentValueCell}${rankCell}${localCorrCell}${globalCorrCell}</tr>`;
-            }
-            
-            const indicatorPairs = {}; 
-            const otherIndicators = allIndicators.filter(ind => ind.toLowerCase() !== 'total_pop');
-            otherIndicators.forEach(indicator => { 
-                const baseName = indicator.replace(/_count$/i, ''); 
-                if (!indicatorPairs[baseName]) indicatorPairs[baseName] = {}; 
-                if (indicator.toLowerCase().endsWith('count')) {
-                    indicatorPairs[baseName].count = indicator;
-                } else {
-                    indicatorPairs[baseName].percent = indicator;
-                }
-            }); 
-            
-            for (const baseName of Object.keys(indicatorPairs).sort()) { 
-                const countInd = indicatorPairs[baseName].count; 
-                const percentInd = indicatorPairs[baseName].percent; 
-                if (!countInd && !percentInd) continue;
-
-                const indicatorForKey = percentInd || countInd;
-                const rowClass = (currentIndicator === indicatorForKey) ? 'class="infographic-highlight"' : '';
-                const defInfo = measureSet[indicatorForKey] || {};
-                const tableDefinition = defInfo.definition || 'Definition not available.';
-                
-                let rankCell = '<td></td>';
-                if(percentInd && allIndicatorRanks.has(percentInd)) {
-                     const rankMapForInd = allIndicatorRanks.get(percentInd);
-                     if (rankMapForInd.has(uid)) {
-                         rankCell = `<td class="text-center font-bold">${rankMapForInd.get(uid).rank}</td>`;
-                     } else {
-                         rankCell = '<td>N/A</td>';
-                     }
-                }
-
-                const localCorrCell = getLocalCorrelationCell(percentInd);
-                const globalCorrCell = getGlobalCorrelationCell(percentInd);
-                tableHTML += `<tr ${rowClass}><td>${tableDefinition}</td>${getValueCell(properties, countInd)}${getValueCell(properties, percentInd)}${rankCell}${localCorrCell}${globalCorrCell}</tr>`; 
-            } 
-            
-            tableHTML += '</tbody></table>';
-            const tempDiv = document.createElement('div');
-            tempDiv.innerHTML = tableHTML;
-            infographicContainer.appendChild(tempDiv.firstChild);
-
-            const scale = indicatorScales[currentIndicator];
-            if (scale && (isPercentageIndicator(currentIndicator) || isCurrencyIndicator(currentIndicator))) {
-                const colors = scale.colors(7);
-                const gradient = 'linear-gradient(to right, ' + colors.join(', ') + ')';
-                const legendHtml = `
-                    <div class="infographic-legend">
-                        <h3>Colour Legend</h3>
-                        <div class="legend-content">
-                            <div class="color-bar" style="background: ${gradient};"></div>
-                            <div class="labels">
-                                <span>Low</span>
-                                <span>High</span>
-                            </div>
-                        </div>
-                    </div>
-                `;
-                infographicContainer.insertAdjacentHTML('beforeend', legendHtml);
-            }
-
-            const footer = document.createElement('div');
-            footer.className = 'infographic-footer';
-            footer.innerHTML = `<p><strong>Source:</strong> ${source}</p>${brandingHtml}`;
-            infographicContainer.appendChild(footer);
-            
-            return infographicContainer;
-        }
-
-        async function downloadPdf() {
-            const infographicContainer = await prepareInfographic();
-            if (!infographicContainer) return;
-
-            const regionName = getRegionName(clickedFeature.properties, activeLayerKey);
-
-            try {
-                const canvas = await html2canvas(infographicContainer, { scale: 2, useCORS: true });
-                const imgData = canvas.toDataURL('image/png');
-                const canvasWidth = canvas.width;
-                const canvasHeight = canvas.height;
-                
-                const { jsPDF } = window.jspdf;
-                const doc = new jsPDF({
-                    orientation: canvasWidth > canvasHeight ? 'l' : 'p',
-                    unit: 'px',
-                    format: [canvasWidth, canvasHeight]
-                });
-
-                doc.addImage(imgData, 'PNG', 0, 0, canvasWidth, canvasHeight);
-                doc.save(`${regionName.replace(/\s/g, '_')}_infographic.pdf`);
-
-                showMessage('PDF download started.', 'green');
-            } catch (error) {
-                console.error("Error generating PDF:", error);
-                showMessage('Could not generate PDF.', 'red');
-            } finally {
-                if (infographicContainer) infographicContainer.innerHTML = ''; // Clean up
-            }
-        }
-
-        async function downloadImage() {
-            const infographicContainer = await prepareInfographic();
-            if (!infographicContainer) return;
-
-            const regionName = getRegionName(clickedFeature.properties, activeLayerKey);
-
-            try {
-                const canvas = await html2canvas(infographicContainer, { scale: 2, useCORS: true });
-                const imgData = canvas.toDataURL('image/png');
-                
-                const link = document.createElement('a');
-                link.download = `${regionName.replace(/\s/g, '_')}_infographic.png`;
-                link.href = imgData;
-                document.body.appendChild(link);
-                link.click();
-                document.body.removeChild(link);
-
-                showMessage('Image download started.', 'green');
-            } catch (error) {
-                console.error("Error generating image:", error);
-                showMessage('Could not generate image.', 'red');
-            } finally {
-                if (infographicContainer) infographicContainer.innerHTML = ''; // Clean up
-            }
-        }
+            const properties = clickedFeature.properties;
+            const wikiInfo = await getWikipediaInfo(properties, activeLayerKey);
+            const measureSet = allMeasuresInfo[activeYear] || {};
+            const indicatorInfo = measureSet[currentIndicator] || {};
+            const definition = indicatorInfo.definition || 'Not available.';
+            const source = indicatorInfo.source || 'Not available.';
+            const regionName = getRegionName(properties, activeLayerKey);
+            
+            const infographicContainer = document.getElementById('infographic-container');
+            
+            let wikiHtml = '';
+            if (wikiInfo.intro || (wikiInfo.imageUrls && wikiInfo.imageUrls.length > 0)) {
+                const imagesHtml = wikiInfo.imageUrls.map(url => `<img src="${url}" crossorigin="anonymous" />`).join('');
+                wikiHtml = `
+                    <h2>About ${regionName}</h2>
+                    <div class="wiki-content">
+                        ${wikiInfo.intro ? `<div class="wiki-intro">${wikiInfo.intro}</div>` : ''}
+                        ${imagesHtml ? `<div class="wiki-images">${imagesHtml}</div>` : ''}
+                    </div>
+                `;
+            }
 
             const brandingHtml = `
                 <div class="infographic-branding">
