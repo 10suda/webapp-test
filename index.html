@@ -1,4 +1,6 @@
-<!DOCTYPE html><html lang="en"><head>
+<!DOCTYPE html>
+<html lang="en">
+<head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>CDP - Map Tool</title>
@@ -24,10 +26,8 @@
     
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0/dist/chartjs-plugin-datalabels.min.js"></script>
-    
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js" integrity="sha512-BNaRQnYJYiPSqHHDb58B0yaPfCu+Wgds8Gp/gU33kqBtgNS4tSPHuGibyoeqMV/TJlSKda6FXzoEyYGjTe+vXA==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js" integrity="sha512-qZvrmS2ekKPF2mSznTQsxqPgnpkI4DNTlrdUmTzrDgektczlKNRRhy5X5AAOnx5S09ydFYWWNSfcEqDTTHgtNA==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
-
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 
     <style>
         /* CDP Brand Colors */
@@ -176,16 +176,16 @@
             font-weight: bold;
         }
         .legend {
-              position: absolute;
-              bottom: 30px;
-              right: 10px;
-              padding: 10px;
-              background: rgba(255, 255, 255, 0.9);
-              box-shadow: 0 0 15px rgba(0,0,0,0.2);
-              border-radius: 5px;
-              z-index: 1000;
-              line-height: 18px;
-              width: 200px;
+             position: absolute;
+             bottom: 30px;
+             right: 10px;
+             padding: 10px;
+             background: rgba(255, 255, 255, 0.9);
+             box-shadow: 0 0 15px rgba(0,0,0,0.2);
+             border-radius: 5px;
+             z-index: 1000;
+             line-height: 18px;
+             width: 200px;
         }
         .legend .color-bar {
             height: 12px;
@@ -497,8 +497,20 @@
             margin-top: 20px;
             gap: 15px;
         }
+        /* Style for the legend in the PDF */
+        #infographic-container .legend {
+             position: relative;
+             bottom: auto;
+             right: auto;
+             margin: 20px auto;
+             width: 50%;
+        }
+        #infographic-container .legend h4 { font-size: 14px; }
 
-    </style></head><body class="bg-gray-100 text-gray-800">
+
+    </style>
+</head>
+<body class="bg-gray-100 text-gray-800">
 
     <header class="header">
         <img src="icon.png" alt="CDP Logo" class="h-8 w-8 mr-4">
@@ -544,15 +556,15 @@
                         <label for="dl-year-select" class="block font-semibold mb-1">Year</label>
                         <select id="dl-year-select" multiple class="modal-select"></select>
                     </div>
-                     <div>
+                    <div>
                         <label for="dl-layer-select" class="block font-semibold mb-1">Map Layer</label>
                         <select id="dl-layer-select" multiple class="modal-select"></select>
                     </div>
-                     <div>
+                    <div>
                         <label for="dl-province-select" class="block font-semibold mb-1">Province</label>
                         <select id="dl-province-select" multiple class="modal-select"></select>
                     </div>
-                     <div>
+                    <div>
                         <label for="dl-indicator-select" class="block font-semibold mb-1">Indicators</label>
                         <select id="dl-indicator-select" multiple class="modal-select"></select>
                     </div>
@@ -1062,8 +1074,8 @@
 
             for (const value of data) {
                  if (binWidth === 0) {
-                    bins[0]++;
-                    continue;
+                     bins[0]++;
+                     continue;
                  }
                 let binIndex = Math.floor((value - min) / binWidth);
                 if (binIndex >= numBins) binIndex = numBins - 1;
@@ -1074,7 +1086,7 @@
             let selectedValueBin = -1;
             if (!isNaN(selectedValue) && selectedValue >= min && selectedValue <= max) {
                 if (binWidth === 0) {
-                     selectedValueBin = 0;
+                    selectedValueBin = 0;
                 } else {
                     let binIndex = Math.floor((selectedValue - min) / binWidth);
                     if (binIndex >= numBins) binIndex = numBins - 1;
@@ -1304,17 +1316,55 @@
             }
             showMessage('Generating PDF...', 'blue');
 
-            const infographicContainer = document.getElementById('infographic-container');
+            // --- PREPARE CHART IMAGES ---
 
-            // --- 1. PREPARE CONTENT ---
+            // 1. Ranking Chart (with data labels temporarily enabled)
             rankingChart.options.plugins.datalabels.display = true;
             rankingChart.update('none');
             const rankingChartImg = rankingChart.toBase64Image();
             rankingChart.options.plugins.datalabels.display = false;
             rankingChart.update('none');
 
-            const histogramChartImg = histogramChart ? histogramChart.toBase64Image() : null;
+            // 2. Histogram Chart (create a temporary, horizontal version with data labels)
+            let histogramChartImg = null;
+            if (histogramChart) {
+                const tempCanvas = document.createElement('canvas');
+                tempCanvas.width = histogramChart.canvas.width;
+                tempCanvas.height = histogramChart.canvas.height;
 
+                const pdfHistConfig = {
+                    type: 'bar',
+                    data: JSON.parse(JSON.stringify(histogramChart.data)),
+                    options: JSON.parse(JSON.stringify(histogramChart.options)),
+                    plugins: [ChartDataLabels]
+                };
+
+                pdfHistConfig.options.indexAxis = 'y'; // Make horizontal
+                pdfHistConfig.options.responsive = false;
+                pdfHistConfig.options.animation = false;
+                pdfHistConfig.options.plugins.title.text = `Indicator Distribution`;
+                pdfHistConfig.options.plugins.datalabels = {
+                    display: true,
+                    anchor: 'end',
+                    align: 'start',
+                    color: (context) => {
+                         const bgColor = context.dataset.backgroundColor[context.dataIndex];
+                         return chroma(bgColor).luminance() > 0.4 ? '#333' : 'white';
+                    },
+                    font: { weight: 'bold', size: 9 },
+                    formatter: (value) => value > 0 ? value : ''
+                };
+                 pdfHistConfig.options.scales.x.title.text = 'Number of Geographies';
+                 pdfHistConfig.options.scales.y.title.text = 'Value Bins';
+
+
+                const tempCtx = tempCanvas.getContext('2d');
+                const tempChart = new Chart(tempCtx, pdfHistConfig);
+                histogramChartImg = tempChart.toBase64Image();
+                tempChart.destroy();
+            }
+
+            // --- GATHER OTHER CONTENT ---
             const properties = clickedFeature.properties;
             const wikiInfo = await getWikipediaInfo(properties, activeLayerKey);
             const measureSet = allMeasuresInfo[activeYear] || {};
@@ -1323,6 +1373,11 @@
             const source = indicatorInfo.source || 'Not available.';
             const regionName = getRegionName(properties, activeLayerKey);
             
+            const infographicContainer = document.getElementById('infographic-container');
+            
+            // --- BUILD HTML FOR PDF ---
+
+            // Wikipedia Section
             let wikiHtml = '';
             if (wikiInfo.intro || (wikiInfo.imageUrls && wikiInfo.imageUrls.length > 0)) {
                 const imagesHtml = wikiInfo.imageUrls.map(url => `<img src="${url}" crossorigin="anonymous" />`).join('');
@@ -1335,6 +1390,7 @@
                 `;
             }
 
+            // Branding Section
             const brandingHtml = `
                 <div class="infographic-branding">
                     <img src="icon.png" style="height: 40px;" crossorigin="anonymous" />
@@ -1342,36 +1398,17 @@
                 </div>
             `;
             
-            infographicContainer.innerHTML = `
-                <h1>${regionName} - ${activeYear}</h1>
-                ${wikiHtml}
-                <h2>${formatIndicatorName(currentIndicator).replace(/ \(.+\)/, '')}</h2>
-                <p style="padding: 0 10px 15px 10px; font-size: 14px; line-height: 1.6;">${definition}</p>
-                <div class="chart-container">
-                    <div class="chart-wrapper">
-                        <h2>Ranking Comparison</h2>
-                        <img src="${rankingChartImg}" crossorigin="anonymous" />
-                    </div>
-                    ${histogramChartImg ? `
-                    <div class="chart-wrapper">
-                        <h2>Indicator Distribution</h2>
-                        <img src="${histogramChartImg}" crossorigin="anonymous" />
-                    </div>` : ''}
-                </div>
-                <h2>Data for Selected Area</h2>
-            `;
-
+            // Data Table (using definitions)
             const uid = getRegionUID(properties, activeLayerKey);
             let rankHeader = 'Rank';
-            if (allIndicatorRanks.has(currentIndicator)) {
+             if (allIndicatorRanks.has(currentIndicator)) {
                 const rankMap = allIndicatorRanks.get(currentIndicator);
                 if (rankMap.size > 0) {
                     const total = rankMap.values().next().value.total;
                     rankHeader = `Rank (of ${total})`;
                 }
             }
-
-            let tableHTML = `<table id="infographic-table"><thead><tr><th>Indicator Definition</th><th>Count</th><th>% or $</th><th>${rankHeader}</th></tr></thead><tbody>`;
+            let tableHTML = `<h2>Data for Selected Area</h2><table id="infographic-table"><thead><tr><th>Indicator Definition</th><th>Count</th><th>% or $</th><th>${rankHeader}</th></tr></thead><tbody>`;
             
             if (properties.hasOwnProperty('total_pop')) {
                 const indicatorKey = 'total_pop';
@@ -1414,83 +1451,80 @@
                 if(percentInd && allIndicatorRanks.has(percentInd)) {
                      const rankMapForInd = allIndicatorRanks.get(percentInd);
                      if (rankMapForInd.has(uid)) {
-                          rankCell = `<td class="text-center font-bold">${rankMapForInd.get(uid).rank}</td>`;
+                         rankCell = `<td class="text-center font-bold">${rankMapForInd.get(uid).rank}</td>`;
                      } else {
-                          rankCell = '<td>N/A</td>';
+                         rankCell = '<td>N/A</td>';
                      }
                 }
                 tableHTML += `<tr><td>${tableDefinition}</td>${getValueCell(properties, countInd)}${getValueCell(properties, percentInd)}${rankCell}</tr>`; 
             } 
             
             tableHTML += '</tbody></table>';
-            infographicContainer.innerHTML += tableHTML;
 
-            const mapLegend = document.getElementById('legend');
-            if (mapLegend && !mapLegend.classList.contains('hidden')) {
-                const legendForPdfContainer = document.createElement('div');
-                legendForPdfContainer.style.marginTop = '20px';
-                legendForPdfContainer.innerHTML = '<h2>Map Legend</h2>';
-                const clonedLegend = mapLegend.cloneNode(true);
-                clonedLegend.style.position = 'relative';
-                clonedLegend.style.bottom = 'auto';
-                clonedLegend.style.right = 'auto';
-                clonedLegend.style.margin = '10px auto';
-                clonedLegend.classList.remove('hidden');
-                legendForPdfContainer.appendChild(clonedLegend);
-                infographicContainer.appendChild(legendForPdfContainer);
+            // Color Bar Legend
+            const legendElement = document.getElementById('legend');
+            let legendHtml = '';
+            if (legendElement && !legendElement.classList.contains('hidden')) {
+                const legendClone = legendElement.cloneNode(true);
+                const marker = legendClone.querySelector('#legend-marker');
+                if (marker) marker.remove(); // Remove position marker
+                legendHtml = `<h2>Indicator Legend</h2>${legendClone.outerHTML}`;
             }
 
+            // Assemble all HTML parts
+            infographicContainer.innerHTML = `
+                <h1>${regionName} - ${activeYear}</h1>
+                ${wikiHtml}
+                <h2>${formatIndicatorName(currentIndicator).replace(/ \(.+\)/, '')}</h2>
+                <p style="padding: 0 10px 15px 10px; font-size: 14px; line-height: 1.6;">${definition}</p>
+                <div class="chart-container">
+                    <div class="chart-wrapper">
+                        <h2>Ranking Comparison</h2>
+                        <img src="${rankingChartImg}" crossorigin="anonymous" />
+                    </div>
+                    ${histogramChartImg ? `
+                    <div class="chart-wrapper">
+                        <h2>Indicator Distribution</h2>
+                        <img src="${histogramChartImg}" crossorigin="anonymous" />
+                    </div>` : ''}
+                </div>
+                ${tableHTML}
+                ${legendHtml}
+            `;
+            
             const footer = document.createElement('div');
             footer.className = 'infographic-footer';
             footer.innerHTML = `<p><strong>Source:</strong> ${source}</p>${brandingHtml}`;
             infographicContainer.appendChild(footer);
             
-            // --- 2. PREPARE CONTAINER FOR CAPTURE ---
-            const originalStyles = {
-                left: infographicContainer.style.left,
-                top: infographicContainer.style.top,
-                zIndex: infographicContainer.style.zIndex,
-                opacity: infographicContainer.style.opacity
-            };
-            infographicContainer.style.left = '0px';
-            infographicContainer.style.top = '0px';
-            infographicContainer.style.zIndex = '-1';
-            infographicContainer.style.opacity = '0';
+            // --- GENERATE AND DOWNLOAD PDF ---
+            try {
+                const canvas = await html2canvas(infographicContainer, {
+                    scale: 1.25, // Increase quality by 25%
+                    useCORS: true
+                });
 
+                const imgData = canvas.toDataURL('image/png');
+                const canvasWidth = canvas.width;
+                const canvasHeight = canvas.height;
+                
+                const { jsPDF } = window.jspdf;
+                const doc = new jsPDF({
+                    orientation: canvasWidth > canvasHeight ? 'l' : 'p',
+                    unit: 'px',
+                    format: [canvasWidth, canvasHeight]
+                });
 
-            // --- 3. CAPTURE AND DOWNLOAD ---
-            setTimeout(async () => {
-                try {
-                    const canvas = await html2canvas(infographicContainer, {
-                        scale: 1.5,
-                        useCORS: true,
-                        logging: true // Enable logging for debugging
-                    });
+                doc.addImage(imgData, 'PNG', 0, 0, canvasWidth, canvasHeight);
+                doc.save(`${regionName.replace(/\s/g, '_')}_infographic.pdf`);
 
-                    const imgData = canvas.toDataURL('image/png');
-                    const { jsPDF } = window.jspdf;
-                    const doc = new jsPDF({
-                        orientation: 'p',
-                        unit: 'px',
-                        format: [canvas.width, canvas.height]
-                    });
-
-                    doc.addImage(imgData, 'PNG', 0, 0, canvas.width, canvas.height);
-                    doc.save(`${regionName.replace(/\s/g, '_')}_infographic.pdf`);
-                    showMessage('PDF download started.', 'green');
-
-                } catch (error) {
-                    console.error("Error generating PDF:", error);
-                    showMessage('Could not generate PDF.', 'red');
-                } finally {
-                    // --- 4. CLEANUP ---
-                    infographicContainer.innerHTML = '';
-                    infographicContainer.style.left = originalStyles.left;
-                    infographicContainer.style.top = originalStyles.top;
-                    infographicContainer.style.zIndex = originalStyles.zIndex;
-                    infographicContainer.style.opacity = originalStyles.opacity;
-                }
-            }, 100); // 100ms delay to allow rendering
+                showMessage('PDF download started.', 'green');
+            } catch (error) {
+                console.error("Error generating PDF:", error);
+                showMessage('Could not generate PDF.', 'red');
+            } finally {
+                infographicContainer.innerHTML = ''; // Clean up staging area
+            }
         }
 
         function populateDataSidebar(properties) {
@@ -1633,4 +1667,6 @@
         await loadMeasuresInfo();
         await loadInitialData();
     });
-    </script></body></html>
+    </script>
+</body>
+</html>
