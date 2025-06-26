@@ -522,7 +522,7 @@
             "highschool_youth_25_34": { "definition": "% of the population aged 25-34 with only a High school diploma or equivalent", "source": "Statistics Canada: 2016 Census Cat. no. 98-401-X2016021, 98-401-X2016067" },
             "highschool_adult_35-64": { "definition": "% of the population aged 35-64 with only a High school diploma or equivalent", "source": "Statistics Canada: 2016 Census Cat. no. 98-401-X2016021, 98-401-X2016068" },
             "educational_assets_youth_20_34": { "definition": "% of the population aged 20-34 that has completed a postsecondary certificate, diploma or degree", "source": "Statistics Canada: 2016 Census Cat. no. 98-401-X2016021, 98-401-X2016069" },
-            "educational_assets_adults_35_64": { "definition": "% of the population aged 35-64 year that has completed a postsecondary certificate, diploma or degree", "source": "Statistics Canada: 2016 Census Cat. no. 98-401-X2016021, 98-401-X2016070" },
+            "educational_assets_adults_35_64": { "definition": "% of the population aged 35-64 year that has completed a postsecondary certificate, diploma or degree", "source": "Statistics Canada: 2016 Census Cat. no. 98-401-X2016070" },
             "youth_unemployment_20_34": { "definition": "% of the labour force aged 20-34 that is unemployed", "source": "Statistics Canada: 2016 Census Cat. no. 98-401-X2016021, 98-401-X2016071" },
             "adult_unemployment_35_64": { "definition": "% of the labour force aged 35-64 that is unemployed", "source": "Statistics Canada: 2016 Census Cat. no. 98-401-X2016021, 98-401-X2016072" },
             "low_wage_employment_25": { "definition": "% of the population aged 25+ working in retail trade and accommodation and food services", "source": "Statistics Canada: 2016 Census Cat. no. 98-401-X2016021, 98-401-X2016072" }
@@ -618,7 +618,7 @@
             }
         }
 
-        function processData(dataObject, filename, isFirstFile) { const yearMatch = filename.match(/_(\d{4})/); const year = yearMatch ? yearMatch[1] : 'Unknown'; const isTopoJSON = dataObject.type === 'Topology' && dataObject.objects; const geojson = isTopoJSON ? topojson.feature(dataObject, dataObject.objects[Object.keys(dataObject.objects)[0]]) : dataObject; if (!geojson || !geojson.features) { showMessage(`Error: Invalid or empty GeoJSON data in ${filename}.`, 'red'); return; } geojson.features.forEach(feature => { standardizeProperties(feature.properties, year); }); if (!loadedLayers[year]) loadedLayers[year] = {}; loadedLayers[year][filename] = { geojson: geojson, layer: null }; if (isFirstFile) { const properties = geojson.features.length > 0 ? geojson.features[0].properties : {}; allIndicators = Object.keys(properties).filter(p => !idKeys.includes(p.toUpperCase()) && !nameKeys.includes(p.toUpperCase()) && properties[p] !== null && !isNaN(parseFloat(properties[p]))).sort(); const selectableIndicators = allIndicators.filter(ind => !ind.toLowerCase().endsWith('_count') && ind.toLowerCase() !== 'total_pop'); if (selectableIndicators.length > 0) { indicatorSelect.innerHTML = ''; selectableIndicators.forEach(ind => { const option = document.createElement('option'); option.value = ind; option.textContent = formatIndicatorName(ind); indicatorSelect.appendChild(option); }); currentIndicator = selectableIndicators[0]; updateIndicatorInfo(currentIndicator); indicatorContainer.classList.remove('hidden'); allIndicators.forEach(indicator => { const values = geojson.features.map(f => parseFloat(f.properties[indicator])).filter(v => !isNaN(v) && isFinite(v)); if (values.length > 0) indicatorScales[indicator] = chroma.scale('viridis').domain(getBreaks(values, 5)); }); } } updateYearControl(); if (!activeYear) { setActiveYear(year); } else { updateLayerControl(); if (year === activeYear && (!activeLayerKey || !loadedLayers[activeYear][activeLayerKey])) { setActiveLayer(filename); } } showMessage(`${filename} loaded.`, 'green'); }
+        function processData(dataObject, filename, isFirstFile) { const yearMatch = filename.match(/_(\d{4})/); const year = yearMatch ? yearMatch[1] : 'Unknown'; const isTopoJSON = dataObject.type === 'Topology' && dataObject.objects; const geojson = isTopoJSON ? topojson.feature(dataObject, dataObject.objects[Object.keys(dataObject.objects)[0]]) : dataObject; if (!geojson || !geojson.features) { showMessage(`Error: Invalid or empty GeoJSON data in ${filename}.`, 'red'); return; } geojson.features.forEach(feature => { standardizeProperties(feature.properties, year); }); if (!loadedLayers[year]) loadedLayers[year] = {}; loadedLayers[year][filename] = { geojson: geojson, layer: null }; if (isFirstFile) { const properties = geojson.features.length > 0 ? geojson.features[0].properties : {}; allIndicators = Object.keys(properties).filter(p => !idKeys.includes(p.toUpperCase()) && !nameKeys.includes(p.toUpperCase()) && properties[p] !== null && !isNaN(parseFloat(properties[p]))).sort(); const selectableIndicators = allIndicators.filter(ind => !ind.toLowerCase().endsWith('_count') || ind.toLowerCase() === 'total_pop'); if (selectableIndicators.length > 0) { indicatorSelect.innerHTML = ''; selectableIndicators.forEach(ind => { const option = document.createElement('option'); option.value = ind; option.textContent = formatIndicatorName(ind); indicatorSelect.appendChild(option); }); currentIndicator = selectableIndicators[0]; updateIndicatorInfo(currentIndicator); indicatorContainer.classList.remove('hidden'); allIndicators.forEach(indicator => { const values = geojson.features.map(f => parseFloat(f.properties[indicator])).filter(v => !isNaN(v) && isFinite(v)); if (values.length > 0) indicatorScales[indicator] = chroma.scale('viridis').domain(getBreaks(values, 5)); }); } } updateYearControl(); if (!activeYear) { setActiveYear(year); } else { updateLayerControl(); if (year === activeYear && (!activeLayerKey || !loadedLayers[activeYear][activeLayerKey])) { setActiveLayer(filename); } } showMessage(`${filename} loaded.`, 'green'); }
         async function loadInitialData() { const filesToLoad = [ 'data/PR_layer_2016.json', 'data/CD_layer_2016.json', 'data/CSD_layer_2016.json', 'data/CMA_layer_2016.json', 'data/CT_layer_2016.json', 'data/PR_layer_2011.json', 'data/CD_layer_2011.json', 'data/CSD_layer_2011.json', 'data/CMA_layer_2011.json', 'data/CT_layer_2011.json' ]; let isFirstFileForIndicatorSetup = true; for (const filePath of filesToLoad) { const filename = filePath.split('/').pop(); showMessage(`Loading ${filename}...`, 'blue'); try { const response = await fetch(filePath); if (!response.ok) { throw new Error(`File not found or network error (status: ${response.status})`); } const processAndContinue = (dataObject) => { processData(dataObject, filename, isFirstFileForIndicatorSetup); if (isFirstFileForIndicatorSetup) { isFirstFileForIndicatorSetup = false; } }; if (filename.endsWith('.zip')) { const arrayBuffer = await response.arrayBuffer(); const geojson = await shp(arrayBuffer); processAndContinue(geojson); } else { const data = await response.json(); processAndContinue(data); } } catch (error) { showMessage(`Error loading ${filename}: ${error.message}`, 'red'); console.error(`Failed to load or process ${filePath}:`, error); } } const latestYear = Object.keys(loadedLayers).sort((a, b) => b - a)[0]; if (latestYear) { setActiveYear(latestYear); showMessage('All available data loaded.', 'green'); } else { showMessage('Could not load any data. Check file paths and console.', 'red'); } }
         function cleanProvinceName(name) { if (!name || typeof name !== 'string') return ''; return name.includes(' / ') ? name.split(' / ')[0] : name; }
         function getRegionName(properties, layerKey) { const layerType = getLayerType(layerKey); switch (layerType) { case 'PR_': return cleanProvinceName(properties.PRNAME) || 'Unnamed Province'; case 'CMA_': return properties.CMANAME || 'Unnamed CMA'; case 'CD_': return properties.CDNAME || 'Unnamed Census Division'; case 'CSD_': return properties.CSDNAME || 'Unnamed Census Subdivision'; case 'CT_': return properties.CTNAME || 'Unnamed Census Tract'; default: return properties.CMANAME || properties.CTNAME || properties.CSDNAME || properties.CDNAME || cleanProvinceName(properties.PRNAME) || 'Region'; } }
@@ -634,7 +634,7 @@
             }
 
             const features = loadedLayers[activeYear][activeLayerKey].geojson.features;
-            const selectableIndicators = allIndicators.filter(ind => !ind.toLowerCase().endsWith('_count') && ind.toLowerCase() !== 'total_pop');
+            const selectableIndicators = allIndicators.filter(ind => !ind.toLowerCase().endsWith('_count') || ind.toLowerCase() === 'total_pop');
 
             selectableIndicators.forEach(indicator => {
                 const validFeatures = features
@@ -708,14 +708,8 @@
 
             let content = `<div class="flex justify-between items-center mb-4"><h3 class="text-xl font-semibold">${getRegionName(properties, activeLayerKey)} - ${activeYear}</h3><button id="close-data-sidebar" class="text-gray-500 hover:text-gray-800 text-2xl leading-none">&times;</button></div><div><button id="open-download-modal-btn" class="download-btn">Download CSV</button></div><div id="data-sidebar-content"><div id="ranking-chart-container" style="height: 400px; margin-bottom: 1rem;"><canvas id="rankingChart"></canvas></div><table id="indicator-table"><thead><tr><th>Indicator</th><th>Count</th><th>% or $</th><th>${rankHeader}</th></tr></thead><tbody>`; 
             
-            if (properties.hasOwnProperty('total_pop')) { 
-                const formattedName = "Total Population"; 
-                content += `<tr><td title="${formattedName}">${formattedName}</td>${getValueCell(properties, 'total_pop')}<td class="text-right">100.0%</td><td></td></tr>`; 
-            } 
-            
             const indicatorPairs = {}; 
-            const otherIndicators = allIndicators.filter(ind => ind.toLowerCase() !== 'total_pop'); 
-            otherIndicators.forEach(indicator => { 
+            allIndicators.forEach(indicator => { 
                 const baseName = indicator.replace(/_count$/i, ''); 
                 if (!indicatorPairs[baseName]) indicatorPairs[baseName] = {}; 
                 if (indicator.toLowerCase().endsWith('count')) {
@@ -728,16 +722,26 @@
             for (const baseName of Object.keys(indicatorPairs).sort()) { 
                 const countInd = indicatorPairs[baseName].count; 
                 const percentInd = indicatorPairs[baseName].percent; 
-                const formattedBaseName = formatIndicatorName(baseName).replace(/ \(.+\)/, ''); 
-                let rowClass = (currentIndicator === percentInd) ? 'sidebar-highlight' : ''; 
-                let dataAttribute = percentInd ? `data-indicator="${percentInd}"` : ''; 
                 
-                let rankCell = '<td>N/A</td>';
-                if (percentInd && allIndicatorRanks.has(percentInd)) {
-                    const rankMapForInd = allIndicatorRanks.get(percentInd);
-                    if (rankMapForInd.has(uid)) {
-                        const { rank } = rankMapForInd.get(uid);
-                        rankCell = `<td class="text-right font-bold">${rank}</td>`;
+                if (!countInd && !percentInd) continue;
+
+                const indicatorForDisplay = percentInd || countInd;
+                const formattedBaseName = formatIndicatorName(baseName).replace(/ \(.+\)/, ''); 
+                let rowClass = (currentIndicator === indicatorForDisplay) ? 'sidebar-highlight' : ''; 
+                let dataAttribute = percentInd ? `data-indicator="${percentInd}"` : ''; 
+
+                let rankCell = '<td></td>';
+                if(percentInd) {
+                     if (allIndicatorRanks.has(percentInd)) {
+                        const rankMapForInd = allIndicatorRanks.get(percentInd);
+                        if (rankMapForInd.has(uid)) {
+                            const { rank } = rankMapForInd.get(uid);
+                            rankCell = `<td class="text-right font-bold">${rank}</td>`;
+                        } else {
+                           rankCell = '<td>N/A</td>';
+                        }
+                    } else {
+                        rankCell = '<td>N/A</td>';
                     }
                 }
                 
