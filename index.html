@@ -317,7 +317,7 @@
         .modal-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 1rem; }
         .modal-select { width: 100%; height: 150px; border: 1px solid #ccc; border-radius: 4px; padding: 4px; }
         
-        /* ADDED: Drill-down popup styles */
+        /* Drill-down popup styles */
         .drilldown-popup {
             position: absolute;
             background-color: white;
@@ -555,7 +555,7 @@
         let tappedFeatureLayer = null; 
         let rankingChart = null;
         let histogramChart = null;
-        let activeDrillDownPopup = null; // ADDED
+        let activeDrillDownPopup = null;
         let allIndicatorRanks = new Map();
         let activeRanks = new Map();
         const idKeys = ['CDUID', 'PRUID', 'CSDUID', 'CTUID', 'CMAUID', 'CMAPUID'];
@@ -653,6 +653,15 @@
         function formatHistogramLabel(value, indicator) { const numValue = parseFloat(value); if (isNaN(numValue) || numValue === null) return 'N/A'; if (isPercentageIndicator(indicator)) return (numValue * 100).toFixed(0); if (isCurrencyIndicator(indicator)) return '$' + Math.round(numValue / 1000) + 'k'; return Math.round(numValue).toLocaleString(); }
         function formatIndicatorName(name) { let formattedName = name.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()); if (isPercentageIndicator(name)) formattedName += ' (%)'; else if (name.toLowerCase().endsWith('count') || name.toLowerCase() === 'total_pop') formattedName = formattedName.replace(' Count', '') + ' (Count)'; else if (isCurrencyIndicator(name)) formattedName += ' ($)'; formattedName = formattedName.replace(/(\d+)\s(\d+)/g, '$1-$2'); return formattedName; }
         
+        // ADDED: New formatting function for drill-down chart labels
+        function formatDrillDownLabel(value, indicator) {
+            const numValue = parseFloat(value);
+            if (isNaN(numValue) || numValue === null) return 'N/A';
+            if (isPercentageIndicator(indicator)) return (numValue * 100).toFixed(2) + '%';
+            if (isCurrencyIndicator(indicator)) return '$' + Math.round(numValue).toLocaleString();
+            return numValue.toLocaleString();
+        }
+
         function getPercentile(sortedData, percentile) {
             if (sortedData.length === 0) return NaN;
             const index = percentile * (sortedData.length - 1);
@@ -927,7 +936,6 @@
                 return [];
             }
             const features = loadedLayers[activeYear][activeLayerKey].geojson.features;
-            // MODIFIED: Return full feature with value, not just value
             const values = features
                 .map(f => ({
                     value: parseFloat(f.properties[currentIndicator]),
@@ -937,7 +945,7 @@
             return values;
         }
 
-        // --- NEW AND MODIFIED FUNCTIONS FOR HISTOGRAM DRILLDOWN ---
+        // --- HISTOGRAM DRILLDOWN FUNCTIONS ---
         
         function dismissDrillDownPopup() {
             if (activeDrillDownPopup) {
@@ -948,14 +956,14 @@
         }
 
         function handleOutsidePopupClick(event) {
-            if (activeDrillDownPopup && !activeDrillDownPopup.contains(event.target)) {
+            if (activeDrillDownPopup && !activeDrillDownPopup.contains(event.target) && !histogramChart.canvas.contains(event.target)) {
                 dismissDrillDownPopup();
             }
         }
 
         function createDrillDownHistogram(canvasId, featuresInBin, binLabel) {
             const data = featuresInBin.map(f => parseFloat(f.properties[currentIndicator])).filter(v => !isNaN(v) && isFinite(v));
-            const numBins = Math.min(10, Math.ceil(Math.sqrt(data.length)));
+            const numBins = Math.max(1, Math.min(10, Math.ceil(Math.sqrt(data.length))));
             const min = Math.min(...data);
             const max = Math.max(...data);
             const binWidth = (max - min) / numBins || 1;
@@ -966,25 +974,37 @@
             for (let i = 0; i < numBins; i++) {
                 const binMin = min + i * binWidth;
                 const binMax = min + (i + 1) * binWidth;
-                labels.push(`${formatHistogramLabel(binMin, currentIndicator)} - ${formatHistogramLabel(binMax, currentIndicator)}`);
+                labels.push(`${formatDrillDownLabel(binMin, currentIndicator)} - ${formatDrillDownLabel(binMax, currentIndicator)}`);
             }
 
             for (const value of data) {
                 let binIndex = Math.floor((value - min) / binWidth);
-                if (binIndex >= numBins) binIndex = numBins - 1; // Handle max value
+                if (binIndex >= numBins) binIndex = numBins - 1;
                 bins[binIndex]++;
             }
 
+            // Highlighting logic for drill-down
+            const selectedValue = parseFloat(clickedFeature.properties[currentIndicator]);
+            let selectedValueBin = -1;
+            if (!isNaN(selectedValue) && selectedValue >= min && selectedValue <= max) {
+                let binIndex = Math.floor((selectedValue - min) / binWidth);
+                if (binIndex >= numBins) binIndex = numBins - 1;
+                selectedValueBin = binIndex;
+            }
+            const backgroundColors = bins.map((_, i) => i === selectedValueBin ? 'rgba(255, 193, 7, 0.8)' : 'rgba(0, 123, 123, 0.6)');
+            const borderColors = bins.map((_, i) => i === selectedValueBin ? 'rgba(255, 193, 7, 1)' : 'rgba(0, 123, 123, 1)');
+
+
             const ctx = document.getElementById(canvasId).getContext('2d');
             new Chart(ctx, {
-                type: 'bar',
+                type: 'bar', // Vertical chart
                 data: {
                     labels: labels,
                     datasets: [{
                         label: 'Number of Geographies',
                         data: bins,
-                        backgroundColor: 'rgba(0, 123, 123, 0.6)',
-                        borderColor: 'rgba(0, 123, 123, 1)',
+                        backgroundColor: backgroundColors,
+                        borderColor: borderColors,
                         borderWidth: 1
                     }]
                 },
@@ -997,12 +1017,10 @@
         }
 
         function showDrillDownPopup(event, features, binLabel) {
-            dismissDrillDownPopup(); // Close any existing popup
+            dismissDrillDownPopup();
 
             const popup = document.createElement('div');
             popup.className = 'drilldown-popup';
-            popup.style.left = `${event.x}px`;
-            popup.style.top = `${event.y}px`;
             
             const canvasId = `drilldown-canvas-${Date.now()}`;
             popup.innerHTML = `
@@ -1018,11 +1036,26 @@
             document.body.appendChild(popup);
             activeDrillDownPopup = popup;
 
+            // Position adjustment logic
+            popup.style.left = `${event.x}px`;
+            popup.style.top = `${event.y}px`;
+            const rect = popup.getBoundingClientRect();
+            if (rect.right > window.innerWidth) {
+                popup.style.left = `${window.innerWidth - rect.width}px`;
+            }
+            if (rect.left < 0) {
+                popup.style.left = `0px`;
+            }
+            if (rect.top < 0) {
+                 popup.style.top = `${event.y + 10}px`;
+                 popup.style.transform = `translate(-50%, 5%)`;
+            }
+
+
             popup.querySelector('.drilldown-popup-close').onclick = dismissDrillDownPopup;
             
             createDrillDownHistogram(canvasId, features, binLabel);
 
-            // Use timeout to avoid the same click event closing the popup immediately
             setTimeout(() => {
                 document.addEventListener('click', handleOutsidePopupClick, true);
             }, 0);
@@ -1055,15 +1088,13 @@
 
             const finalLabels = [];
             const finalBins = [];
-            const binnedFeatures = []; // To store features for drilldown
+            const binnedFeatures = [];
 
-            // Outlier Bins
             const underflowFeatures = sortedData.filter(item => item.value < lowerFence);
             finalLabels.push(`< ${formatHistogramLabel(lowerFence, currentIndicator)}`);
             finalBins.push(underflowFeatures.length);
             binnedFeatures.push(underflowFeatures.map(item => item.feature));
 
-            // Core Bins
             const coreBins = Array(numBins).fill(0);
             const coreBinnedFeatures = Array.from({ length: numBins }, () => []);
             for (let i = 0; i < numBins; i++) {
@@ -1072,7 +1103,7 @@
             if (binWidth > 0) {
                 for (const item of coreData) {
                     let binIndex = Math.floor((item.value - coreMin) / binWidth);
-                    if (binIndex >= numBins) binIndex = numBins - 1; // Handle max value
+                    if (binIndex >= numBins) binIndex = numBins - 1;
                     coreBins[binIndex]++;
                     coreBinnedFeatures[binIndex].push(item.feature);
                 }
@@ -1083,7 +1114,6 @@
             finalBins.push(...coreBins);
             binnedFeatures.push(...coreBinnedFeatures);
             
-            // Overflow Bin
             const overflowFeatures = sortedData.filter(item => item.value > upperFence);
             finalLabels.push(`> ${formatHistogramLabel(upperFence, currentIndicator)}`);
             finalBins.push(overflowFeatures.length);
@@ -1117,7 +1147,7 @@
                         if (elements.length === 0) return;
                         const index = elements[0].index;
                         const featuresInBin = binnedFeatures[index];
-                        if (featuresInBin && featuresInBin.length > 1) {
+                        if (featuresInBin && featuresInBin.length > 1) { // Only drill down if there's more than one member
                             showDrillDownPopup(event.native, featuresInBin, finalLabels[index]);
                         } else {
                            dismissDrillDownPopup();
