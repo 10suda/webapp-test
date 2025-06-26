@@ -24,8 +24,9 @@
     
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0/dist/chartjs-plugin-datalabels.min.js"></script>
+    
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js" integrity="sha512-BNaRQnYJYiPSqHHDb58B0yaPfCu+Wgds8Gp/gU33kqBtgNS4tSPHuGibyoeqMV/TJlSKda6FXzoEyYGjTe+vXA==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js" integrity="sha512-qZvrmS2ekKPF2mSZNvyHOLNbAnHPS2euqoiKMMbfNu5S1DqGR1NPAmIupJyS2S9pRCI1iuUe0NGD/dYw2rG9gw==" crossorigin="anonymous"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js" integrity="sha512-qZvrmS2ekKPF2mSznTQsxqPgnpkI4DNTlrdUmTzrDgektczlKNRRhy5X5AAOnx5S09ydFYWWNSfcEqDTTHgtNA==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
 
 
     <style>
@@ -1449,6 +1450,7 @@
             
             // --- CAPTURE AND DOWNLOAD PDF ---
             // Temporarily move the container onscreen but keep it invisible to ensure rendering
+            const originalStyles = { left: infographicContainer.style.left, top: infographicContainer.style.top, visibility: infographicContainer.style.visibility };
             infographicContainer.style.left = '0px';
             infographicContainer.style.top = '0px';
             infographicContainer.style.visibility = 'hidden';
@@ -1473,9 +1475,9 @@
             } finally {
                 // IMPORTANT: Clean up styles and content afterwards
                 infographicContainer.innerHTML = '';
-                infographicContainer.style.left = '-9999px';
-                infographicContainer.style.top = '0';
-                infographicContainer.style.visibility = 'visible';
+                infographicContainer.style.left = originalStyles.left;
+                infographicContainer.style.top = originalStyles.top;
+                infographicContainer.style.visibility = originalStyles.visibility;
             }
         }
 
