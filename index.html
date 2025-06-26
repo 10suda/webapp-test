@@ -577,7 +577,7 @@
             "educational_assets_youth_20_34": { "definition": "% of the population aged 20-34 that has completed a postsecondary certificate, diploma or degree", "source": "Statistics Canada: 2016 Census Cat. no. 98-401-X2016021, 98-401-X2016069" },
             "educational_assets_adults_35_64": { "definition": "% of the population aged 35-64 year that has completed a postsecondary certificate, diploma or degree", "source": "Statistics Canada: 2016 Census Cat. no. 98-401-X2016070" },
             "youth_unemployment_20_34": { "definition": "% of the labour force aged 20-34 that is unemployed", "source": "Statistics Canada: 2016 Census Cat. no. 98-401-X2016021, 98-401-X2016071" },
-            "adult_unemployment_35_64": { "definition": "% of the labour force aged 35-64 that is unemployed", "source": "Statistics Canada: 2016 Census Cat. no. 98-401-X2016021, 98-401-X2016072" },
+            "adult_unemployment_35_64": { "definition": "% of the labour force aged 35-64 that is unemployed", "source": "Statistics Canada: 2016 Census Cat. no. 98-401-X2016072" },
             "low_wage_employment_25": { "definition": "% of the population aged 25+ working in retail trade and accommodation and food services", "source": "Statistics Canada: 2016 Census Cat. no. 98-401-X2016021, 98-401-X2016072" }
         };
 
@@ -751,7 +751,6 @@
         function styleFeature(feature, scale) { let value = 'N/A'; if (feature) value = parseFloat(feature.properties[currentIndicator]); return { fillColor: (feature && currentIndicator && !isNaN(value) && scale) ? scale(value).hex() : '#dddddd', weight: 1, opacity: 1, color: 'white', dashArray: '3', fillOpacity: 0.75 }; }
         function updateLegend(scale, indicator) { const domain = scale.domain(); const colors = scale.colors(5); let gradient = 'linear-gradient(to right, ' + colors.join(', ') + ')'; legend.innerHTML = `<h4>${formatIndicatorName(indicator).replace(/ \(.+\)/,'')}</h4><div class="legend-scale-container" style="position: relative;"><div class="color-bar" style="background: ${gradient};"></div></div><div class="labels"><span>${formatValue(domain[0], indicator)}</span><span>${formatValue(domain[domain.length - 1], indicator)}</span></div>`; legend.classList.remove('hidden'); updateLegendIndicator(); }
         
-        // MODIFIED: Accepts an optional feature to show, otherwise defaults to the globally clicked feature.
         function updateLegendIndicator(featureToShow = null) {
             const feature = featureToShow || clickedFeature;
             const existingMarker = document.getElementById('legend-marker');
@@ -776,16 +775,14 @@
             if(container) container.appendChild(marker);
         }
 
-        // MODIFIED: Now calls updateLegendIndicator to show the marker on hover/tap.
         function highlightFeature(e) {
             const layer = e.target;
             layer.setStyle({ weight: 3, color: '#333', dashArray: '', fillOpacity: 0.9 });
             if (!L.Browser.ie) layer.bringToFront();
             updateInfoBox(e);
-            updateLegendIndicator(layer.feature); // Update legend for the hovered/tapped feature
+            updateLegendIndicator(layer.feature);
         }
 
-        // MODIFIED: Now calls updateLegendIndicator to reset the marker to the clicked feature's state.
         function resetHighlight(e) {
             if (e.target !== clickedLayer) {
                 if (activeYear && activeLayerKey && loadedLayers[activeYear][activeLayerKey] && loadedLayers[activeYear][activeLayerKey].layer) {
@@ -795,7 +792,7 @@
             if (!IS_MOBILE_VIEW) {
                 infoBox.classList.remove('visible');
             }
-            updateLegendIndicator(); // Reset to clicked feature (or nothing)
+            updateLegendIndicator();
         }
 
         function highlightClickedFeature(layer) { if (clickedLayer) { if (activeYear && activeLayerKey && loadedLayers[activeYear][activeLayerKey] && loadedLayers[activeYear][activeLayerKey].layer) { loadedLayers[activeYear][activeLayerKey].layer.resetStyle(clickedLayer); } } if (layer) { layer.setStyle({ weight: 3, color: '#333', dashArray: '', fillOpacity: 0.9 }); if (!L.Browser.ie) { layer.bringToFront(); } } clickedLayer = layer; }
@@ -867,7 +864,6 @@
                     const elementIndex = elements[0].index;
                     const clickedUID = chartData[elementIndex].uid;
 
-                    // MODIFIED: Logic to update sidebar instead of collapsing it on mobile
                     const features = loadedLayers[activeYear][activeLayerKey].geojson.features;
                     const targetFeature = features.find(f => getRegionUID(f.properties, activeLayerKey) === clickedUID);
                     
@@ -886,7 +882,7 @@
                         updateLegendIndicator();
                     }
                 }, 
-                plugins: { legend: { display: false }, title: { display: true, text: `Top and Bottom 5 for ${formatIndicatorName(currentIndicator)}` }, tooltip: { callbacks: { label: function(context) { let label = context.dataset.label || ''; if (label) { label = label.replace(/ \(.+\)/, ''); label += ': '; } if (context.parsed.x !== null) { label += formatValue(context.parsed.x, currentIndicator); } return label; } } }, datalabels: { display: false, /* Set to false by default */ anchor: 'end', align: 'end', formatter: (value, context) => formatValue(value, currentIndicator), color: (context) => { const bgColor = context.dataset.backgroundColor[context.dataIndex]; return chroma(bgColor).luminance() > 0.4 ? '#333' : 'white'; }, font: { weight: 'bold' }, textStrokeColor: 'black', textStrokeWidth: 0.5 } }, scales: { x: { ticks: { callback: function(value, index, values) { if(isPercentageIndicator(currentIndicator)) { return (value * 100).toFixed(0) + '%'; } if (isCurrencyIndicator(currentIndicator)) { return '$' + Math.round(value / 1000) + 'k'; } return Math.round(value).toLocaleString(); } } } } } });
+                plugins: { legend: { display: false }, title: { display: true, text: `Top and Bottom 5 for ${formatIndicatorName(currentIndicator)}` }, tooltip: { callbacks: { label: function(context) { let label = context.dataset.label || ''; if (label) { label = label.replace(/ \(.+\)/, ''); label += ': '; } if (context.parsed.x !== null) { label += formatValue(context.parsed.x, currentIndicator); } return label; } } }, datalabels: { display: false, anchor: 'end', align: 'end', formatter: (value, context) => formatValue(value, currentIndicator), color: (context) => { const bgColor = context.dataset.backgroundColor[context.dataIndex]; return chroma(bgColor).luminance() > 0.4 ? '#333' : 'white'; }, font: { weight: 'bold' }, textStrokeColor: 'black', textStrokeWidth: 0.5 } }, scales: { x: { ticks: { callback: function(value, index, values) { if(isPercentageIndicator(currentIndicator)) { return (value * 100).toFixed(0) + '%'; } if (isCurrencyIndicator(currentIndicator)) { return '$' + Math.round(value / 1000) + 'k'; } return Math.round(value).toLocaleString(); } } } } } });
         }
         
         function getIndicatorDistribution() {
@@ -995,7 +991,7 @@
                             }
                         },
                         datalabels: {
-                            display: false, /* Set to false by default */
+                            display: false,
                             anchor: 'end',
                             align: 'end',
                             formatter: (value) => (value > 0 ? value.toLocaleString() : ''),
@@ -1013,35 +1009,43 @@
         
         async function getWikipediaIntro(properties, layerKey) {
             const layerType = getLayerType(layerKey);
-            let searchQuery = getRegionName(properties, layerKey);
-            
-            // For smaller geographies, try to find a more relevant parent article
+            let baseQuery = getRegionName(properties, layerKey);
+            const provinceName = cleanProvinceName(properties.PRNAME);
+
             if (['CT_', 'CSD_'].includes(layerType)) {
-                searchQuery = properties.CMANAME || properties.CDNAME || searchQuery;
+                baseQuery = properties.CMANAME || properties.CDNAME || baseQuery;
             }
-            // Avoid searching for generic tract names
             if (layerType === 'CT_') {
-                 searchQuery = searchQuery.replace(/CT /i, '').trim();
-                 if (!isNaN(searchQuery)) { // if it's just a number
-                    searchQuery = properties.CMANAME || properties.CDNAME;
+                 baseQuery = baseQuery.replace(/CT /i, '').trim();
+                 if (!isNaN(baseQuery)) {
+                    baseQuery = properties.CMANAME || properties.CDNAME;
                  }
             }
-            if (!searchQuery) return 'No location name found to search.';
+            if (!baseQuery) return null;
 
-            const url = `https://en.wikipedia.org/w/api.php?action=query&prop=extracts&exintro&explaintext&format=json&redirects=1&origin=*&titles=${encodeURIComponent(searchQuery)}`;
+            let finalQuery = baseQuery;
+            if (layerType !== 'PR_' && provinceName && !baseQuery.toLowerCase().includes(provinceName.toLowerCase())) {
+                finalQuery = `${baseQuery}, ${provinceName}`;
+            }
+            if (!finalQuery.toLowerCase().includes('canada')) {
+                finalQuery += ', Canada';
+            }
+
+            const url = `https://en.wikipedia.org/w/api.php?action=query&prop=extracts&exintro&explaintext&format=json&redirects=1&origin=*&titles=${encodeURIComponent(finalQuery)}`;
             try {
                 const response = await fetch(url);
                 const data = await response.json();
                 const pages = data.query.pages;
                 const pageId = Object.keys(pages)[0];
                 if (pageId === "-1") {
-                    return `No Wikipedia article found for "${searchQuery}".`;
+                    console.log(`No Wikipedia article found for "${finalQuery}".`);
+                    return null;
                 }
                 const extract = pages[pageId].extract;
-                return extract || 'Summary not available.';
+                return extract || null;
             } catch (error) {
                 console.error("Wikipedia API error:", error);
-                return 'Could not fetch summary from Wikipedia.';
+                return null;
             }
         }
         
@@ -1052,12 +1056,11 @@
             }
             showMessage('Generating infographic...', 'blue');
 
-            // --- 1. Temporarily enable data labels and get chart images ---
             rankingChart.options.plugins.datalabels.display = true;
-            rankingChart.update('none'); // Update without animation
+            rankingChart.update('none');
             const rankingChartImg = rankingChart.toBase64Image();
             rankingChart.options.plugins.datalabels.display = false;
-            rankingChart.update('none'); // Revert back
+            rankingChart.update('none');
 
             let histogramChartImg = null;
             if (histogramChart) {
@@ -1068,24 +1071,28 @@
                 histogramChart.update('none');
             }
 
-            // --- 2. Fetch external data and get local data ---
             const properties = clickedFeature.properties;
             const wikiIntro = await getWikipediaIntro(properties, activeLayerKey);
             const indicatorInfo = measuresInfo[currentIndicator] || {};
             const definition = indicatorInfo.definition || 'Not available.';
             const source = indicatorInfo.source || 'Not available.';
-            
-            // --- 3. Build the infographic HTML ---
+            const regionName = getRegionName(properties, activeLayerKey);
+            const indicatorTitle = formatIndicatorName(currentIndicator);
+
             const infographicContainer = document.getElementById('infographic-container');
             const tableToClone = document.getElementById('indicator-table');
             
-            infographicContainer.innerHTML = `
-                <h1>${getRegionName(properties, activeLayerKey)} - ${activeYear}</h1>
-                <h3 class="infographic-subtitle">Demographic Snapshot</h3>
-                
-                <h2>About ${getRegionName(properties, activeLayerKey)}</h2>
+            const wikiHtml = wikiIntro ? `
+                <h2>About ${regionName}</h2>
                 <div class="wiki-intro">${wikiIntro}</div>
-                
+            ` : '';
+
+            infographicContainer.innerHTML = `
+                <h1>${regionName} - ${activeYear}</h1>
+                <h3 class="infographic-subtitle">Demographic Snapshot</h3>
+                ${wikiHtml}
+                <h2>About the Indicator: ${indicatorTitle.replace(/ \(.+\)/, '')}</h2>
+                <p style="padding: 0 10px 15px 10px; font-size: 14px; line-height: 1.6;">${definition}</p>
                 <div class="chart-container">
                     <div class="chart-wrapper">
                         <h2>Ranking Comparison</h2>
@@ -1097,25 +1104,19 @@
                         <img src="${histogramChartImg}" />
                     </div>` : ''}
                 </div>
-                
                 <h2>Data for Selected Area</h2>
             `;
             infographicContainer.appendChild(tableToClone.cloneNode(true));
             
             const footer = document.createElement('div');
             footer.className = 'data-source-footer';
-            footer.innerHTML = `
-                <p><strong>Indicator:</strong> ${formatIndicatorName(currentIndicator)}</p>
-                <p><strong>Definition:</strong> ${definition}</p>
-                <p><strong>Source:</strong> ${source}</p>
-            `;
+            footer.innerHTML = `<p><strong>Source:</strong> ${source}</p>`;
             infographicContainer.appendChild(footer);
             
-            // --- 4. Render and Download Image ---
             try {
                 const canvas = await html2canvas(infographicContainer, { scale: 2 });
                 const link = document.createElement('a');
-                link.download = `${getRegionName(properties, activeLayerKey).replace(/\s/g, '_')}_infographic.png`;
+                link.download = `${regionName.replace(/\s/g, '_')}_infographic.png`;
                 link.href = canvas.toDataURL("image/png");
                 link.click();
                 showMessage('Image download started.', 'green');
@@ -1123,7 +1124,7 @@
                 console.error("Error generating image:", error);
                 showMessage('Could not generate image.', 'red');
             } finally {
-                infographicContainer.innerHTML = ''; // Clean up
+                infographicContainer.innerHTML = '';
             }
         }
 
@@ -1139,7 +1140,6 @@
                 }
             }
             
-            // MODIFIED: Centered buttons with a gap
             let content = `<div class="flex justify-between items-center mb-4"><h3 class="text-xl font-semibold">${getRegionName(properties, activeLayerKey)} - ${activeYear}</h3><button id="close-data-sidebar" class="text-gray-500 hover:text-gray-800 text-2xl leading-none">&times;</button></div><div class="flex justify-center items-center my-2 gap-x-3"><button id="open-download-modal-btn" class="download-btn">Download CSV</button><button id="download-image-btn" class="download-btn">Download Image</button></div><div id="data-sidebar-content"><div id="ranking-chart-container" style="height: 400px; margin-bottom: 1rem;"><canvas id="rankingChart"></canvas></div><div id="histogram-chart-container" style="height: 250px; margin-bottom: 1rem;"><canvas id="histogramChart"></canvas></div><table id="indicator-table"><thead><tr><th>Indicator</th><th>Count</th><th>% or $</th><th>${rankHeader}</th></tr></thead><tbody>`; 
             
             if (properties.hasOwnProperty('total_pop')) {
