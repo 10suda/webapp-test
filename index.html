@@ -562,6 +562,15 @@
         function formatHistogramLabel(value, indicator) { const numValue = parseFloat(value); if (isNaN(numValue) || numValue === null) return 'N/A'; if (isPercentageIndicator(indicator)) return (numValue * 100).toFixed(0) + '%'; if (isCurrencyIndicator(indicator)) return '$' + Math.round(numValue / 1000) + 'k'; return Math.round(numValue).toLocaleString(); }
         function formatIndicatorName(name) { let formattedName = name.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()); if (isPercentageIndicator(name)) formattedName += ' (%)'; else if (name.toLowerCase().endsWith('count') || name.toLowerCase() === 'total_pop') formattedName = formattedName.replace(' Count', '') + ' (Count)'; else if (isCurrencyIndicator(name)) formattedName += ' ($)'; formattedName = formattedName.replace(/(\d+)\s(\d+)/g, '$1-$2'); return formattedName; }
         
+        function getPercentile(sortedData, percentile) {
+            if (sortedData.length === 0) return NaN;
+            const index = percentile * (sortedData.length - 1);
+            const lower = Math.floor(index);
+            const upper = Math.ceil(index);
+            if (lower === upper) return sortedData[lower];
+            return sortedData[lower] * (upper - index) + sortedData[upper] * (index - lower);
+        }
+
         function onEachFeature(feature, layer) {
             if (IS_MOBILE_VIEW) {
                 layer.on({ click: masterClickHandler });
@@ -763,108 +772,102 @@
 
         function createOrUpdateHistogram(data) {
             const container = document.getElementById('histogram-chart-container');
-            if (!container || data.length === 0) {
+            if (histogramChart) { histogramChart.destroy(); }
+            if (!container || data.length < 4) { 
                 if(container) container.innerHTML = '';
-                if(histogramChart) histogramChart.destroy();
                 return;
             };
 
+            const sortedData = [...data].sort((a, b) => a - b);
+            const q1 = getPercentile(sortedData, 0.25);
+            const q3 = getPercentile(sortedData, 0.75);
+            const iqr = q3 - q1;
+            const lowerFence = q1 - 1.5 * iqr;
+            const upperFence = q3 + 1.5 * iqr;
+
+            const underflow = sortedData.filter(v => v < lowerFence);
+            const overflow = sortedData.filter(v => v > upperFence);
+            const coreData = sortedData.filter(v => v >= lowerFence && v <= upperFence);
+
             const numBins = 15;
-            const min = Math.min(...data);
-            const max = Math.max(...data);
-            const binWidth = (max - min) / numBins;
-            
-            const bins = Array(numBins).fill(0);
-            const labels = [];
-            
+            const coreMin = coreData.length > 0 ? coreData[0] : 0;
+            const coreMax = coreData.length > 0 ? coreData[coreData.length - 1] : 0;
+            const binWidth = (coreData.length > 1 && coreMax > coreMin) ? (coreMax - coreMin) / numBins : 0;
+
+            const coreBins = Array(numBins).fill(0);
+            const coreLabels = [];
+
             for (let i = 0; i < numBins; i++) {
-                const binMin = min + i * binWidth;
-                const binMax = min + (i + 1) * binWidth;
-                labels.push(`${formatHistogramLabel(binMin, currentIndicator)} - ${formatHistogramLabel(binMax, currentIndicator)}`);
+                const binMin = coreMin + i * binWidth;
+                const binMax = coreMin + (i + 1) * binWidth;
+                coreLabels.push(`${formatHistogramLabel(binMin, currentIndicator)} - ${formatHistogramLabel(binMax, currentIndicator)}`);
             }
 
-            for (const value of data) {
-                if (value === max) {
-                    bins[numBins - 1]++;
-                } else {
-                    const binIndex = Math.floor((value - min) / binWidth);
-                    bins[binIndex]++;
+            if (binWidth > 0) {
+                for (const value of coreData) {
+                    if (value === coreMax) {
+                        coreBins[numBins - 1]++;
+                    } else {
+                        const binIndex = Math.floor((value - coreMin) / binWidth);
+                        coreBins[binIndex]++;
+                    }
                 }
+            } else if (coreData.length > 0) {
+                coreBins[Math.floor(numBins / 2)] = coreData.length;
             }
+
+            const finalLabels = [`< ${formatHistogramLabel(lowerFence, currentIndicator)}`, ...coreLabels, `> ${formatHistogramLabel(upperFence, currentIndicator)}`];
+            const finalBins = [underflow.length, ...coreBins, overflow.length];
             
             let selectedValueBin = -1;
             if (clickedFeature) {
                 const selectedValue = parseFloat(clickedFeature.properties[currentIndicator]);
                 if (!isNaN(selectedValue) && isFinite(selectedValue)) {
-                    if (selectedValue === max) {
-                        selectedValueBin = numBins - 1;
-                    } else {
-                        const binIndex = Math.floor((selectedValue - min) / binWidth);
-                        selectedValueBin = binIndex >= numBins ? numBins - 1 : binIndex;
+                    if (selectedValue < lowerFence) {
+                        selectedValueBin = 0;
+                    } else if (selectedValue > upperFence) {
+                        selectedValueBin = finalBins.length - 1;
+                    } else if (binWidth > 0) {
+                        let binIndex = Math.floor((selectedValue - coreMin) / binWidth);
+                        if(selectedValue === coreMax) binIndex = numBins - 1;
+                        selectedValueBin = binIndex + 1;
+                    } else if (coreData.length > 0 && selectedValue === coreMin) {
+                        selectedValueBin = Math.floor(numBins / 2) + 1;
                     }
                 }
             }
 
-            const backgroundColors = Array(numBins).fill('rgba(0, 153, 153, 0.6)');
-            const borderColors = Array(numBins).fill('rgba(0, 153, 153, 1)');
-
-            if (selectedValueBin !== -1) {
-                backgroundColors[selectedValueBin] = 'rgba(255, 193, 7, 0.8)';
-                borderColors[selectedValueBin] = 'rgba(255, 193, 7, 1)';
-            }
-
-
-            if (histogramChart) {
-                histogramChart.destroy();
-            }
+            const backgroundColors = finalLabels.map((_, i) => i === selectedValueBin ? 'rgba(255, 193, 7, 0.8)' : 'rgba(0, 153, 153, 0.6)');
+            const borderColors = finalLabels.map((_, i) => i === selectedValueBin ? 'rgba(255, 193, 7, 1)' : 'rgba(0, 153, 153, 1)');
 
             const ctx = document.getElementById('histogramChart').getContext('2d');
             histogramChart = new Chart(ctx, {
                 type: 'bar',
                 data: {
-                    labels: labels,
+                    labels: finalLabels,
                     datasets: [{
                         label: 'Number of Geographies',
-                        data: bins,
+                        data: finalBins,
                         backgroundColor: backgroundColors,
                         borderColor: borderColors,
                         borderWidth: 1
                     }]
                 },
                 options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
+                    responsive: true, maintainAspectRatio: false,
                     plugins: {
                         legend: { display: false },
-                        title: {
-                            display: true,
-                            text: `Distribution for ${formatIndicatorName(currentIndicator)}`
-                        },
+                        title: { display: true, text: `Distribution for ${formatIndicatorName(currentIndicator)}` },
                         tooltip: {
                             callbacks: {
-                                title: function(context) {
-                                    return `Range: ${context[0].label}`;
-                                },
-                                label: function(context) {
-                                    return `Geographies: ${context.parsed.y}`;
-                                }
+                                title: (context) => `Range: ${context[0].label}`,
+                                label: (context) => `Geographies: ${context.parsed.y}`
                             }
                         }
                     },
                     scales: {
-                        y: {
-                            beginAtZero: true,
-                            title: {
-                                display: true,
-                                text: 'Number of Geographies'
-                            }
-                        },
-                        x: {
-                            title: {
-                                display: true,
-                                text: 'Value Bins'
-                            }
-                        }
+                        y: { beginAtZero: true, title: { display: true, text: 'Number of Geographies' } },
+                        x: { title: { display: true, text: 'Value Bins' } }
                     }
                 }
             });
