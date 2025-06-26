@@ -24,7 +24,10 @@
     
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0/dist/chartjs-plugin-datalabels.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js" integrity="sha512-GsLlZN/3F2ErC5ifS5QtgpiJtWd43JWSuIgh7mbzZ8zBps+dvLusV+eNQATqgA/HdeKFVgA5v3S/cIrLF7QnIg==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js" integrity="sha512-BNaRQnYJYiPSqHHDb58B0yaPfCu+Wgds8Gp/gU33kqBtgNS4tSPHuGibyoVBL5gI9kDXrdVwT" crossorigin="anonymous"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js" integrity="sha512-qZvrmS2ekKPF2mSZNvyHOLNbAnHPS2euqoiKMMbfNu5S1DqGR1NPAmIupJyS2S9pRCI1iuUe0NGD/dYw2rG9gw==" crossorigin="anonymous"></script>
+
 
     <style>
         /* CDP Brand Colors */
@@ -1301,6 +1304,9 @@
             }
             showMessage('Generating PDF...', 'blue');
 
+            const infographicContainer = document.getElementById('infographic-container');
+
+            // --- PREPARE CONTENT ---
             rankingChart.options.plugins.datalabels.display = true;
             rankingChart.update('none');
             const rankingChartImg = rankingChart.toBase64Image();
@@ -1316,8 +1322,6 @@
             const definition = indicatorInfo.definition || 'Not available.';
             const source = indicatorInfo.source || 'Not available.';
             const regionName = getRegionName(properties, activeLayerKey);
-            
-            const infographicContainer = document.getElementById('infographic-container');
             
             let wikiHtml = '';
             if (wikiInfo.intro || (wikiInfo.imageUrls && wikiInfo.imageUrls.length > 0)) {
@@ -1419,11 +1423,9 @@
             } 
             
             tableHTML += '</tbody></table>';
-            const tempDiv = document.createElement('div');
-            tempDiv.innerHTML = tableHTML;
-            infographicContainer.appendChild(tempDiv.firstChild);
+            infographicContainer.innerHTML += tableHTML;
 
-            // --- ADD LEGEND TO PDF ---
+            // ADD LEGEND TO PDF
             const mapLegend = document.getElementById('legend');
             if (mapLegend && !mapLegend.classList.contains('hidden')) {
                 const legendForPdfContainer = document.createElement('div');
@@ -1431,50 +1433,51 @@
                 legendForPdfContainer.innerHTML = '<h2>Map Legend</h2>';
 
                 const clonedLegend = mapLegend.cloneNode(true);
-                // Override absolute positioning for static layout in PDF
                 clonedLegend.style.position = 'relative';
                 clonedLegend.style.bottom = 'auto';
                 clonedLegend.style.right = 'auto';
-                clonedLegend.style.margin = '10px auto'; // Center it
+                clonedLegend.style.margin = '10px auto';
                 clonedLegend.classList.remove('hidden');
 
                 legendForPdfContainer.appendChild(clonedLegend);
                 infographicContainer.appendChild(legendForPdfContainer);
             }
-            // --- END LEGEND ---
 
             const footer = document.createElement('div');
             footer.className = 'infographic-footer';
             footer.innerHTML = `<p><strong>Source:</strong> ${source}</p>${brandingHtml}`;
             infographicContainer.appendChild(footer);
-
-            const opt = {
-              margin:       0.25,
-              filename:     `${regionName.replace(/\s/g, '_')}_infographic.pdf`,
-              image:        { type: 'jpeg', quality: 0.98 },
-              html2canvas:  { 
-                  scale: 2, 
-                  useCORS: true,
-                  // This onclone callback fixes the blank PDF issue by ensuring the
-                  // off-screen element is visible for the rendering process.
-                  onclone: (document) => {
-                      document.getElementById('infographic-container').style.visibility = 'visible';
-                  }
-              },
-              jsPDF:        { unit: 'in', format: 'letter', orientation: 'portrait' }
-            };
             
-            // Use promise-based syntax for cleaner handling
-            html2pdf().from(infographicContainer).set(opt).save()
-                .then(() => {
-                    showMessage('PDF download started.', 'green');
-                    infographicContainer.innerHTML = ''; // Clean up after success
-                })
-                .catch((err) => {
-                    console.error("Error generating PDF:", err);
-                    showMessage('Could not generate PDF.', 'red');
-                    infographicContainer.innerHTML = ''; // Clean up on error
+            // --- CAPTURE AND DOWNLOAD PDF ---
+            // Temporarily move the container onscreen but keep it invisible to ensure rendering
+            infographicContainer.style.left = '0px';
+            infographicContainer.style.top = '0px';
+            infographicContainer.style.visibility = 'hidden';
+
+            try {
+                const canvas = await html2canvas(infographicContainer, { scale: 1.5, useCORS: true });
+                const imgData = canvas.toDataURL('image/png');
+                const { jsPDF } = window.jspdf;
+                const doc = new jsPDF({
+                    orientation: 'p',
+                    unit: 'px',
+                    format: [canvas.width, canvas.height]
                 });
+
+                doc.addImage(imgData, 'PNG', 0, 0, canvas.width, canvas.height);
+                doc.save(`${regionName.replace(/\s/g, '_')}_infographic.pdf`);
+                showMessage('PDF download started.', 'green');
+
+            } catch (error) {
+                console.error("Error generating PDF:", error);
+                showMessage('Could not generate PDF.', 'red');
+            } finally {
+                // IMPORTANT: Clean up styles and content afterwards
+                infographicContainer.innerHTML = '';
+                infographicContainer.style.left = '-9999px';
+                infographicContainer.style.top = '0';
+                infographicContainer.style.visibility = 'visible';
+            }
         }
 
         function populateDataSidebar(properties) {
