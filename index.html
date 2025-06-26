@@ -1338,7 +1338,6 @@
                 </div>
             `;
             
-            // --- CHANGE 1 START: Relocate indicator name and remove old subtitle ---
             infographicContainer.innerHTML = `
                 <h1>${regionName} - ${activeYear}</h1>
                 ${wikiHtml}
@@ -1357,9 +1356,7 @@
                 </div>
                 <h2>Data for Selected Area</h2>
             `;
-            // --- CHANGE 1 END ---
 
-            // --- CHANGE 2 START: Build a new table with definitions ---
             const uid = getRegionUID(properties, activeLayerKey);
             let rankHeader = 'Rank';
             if (allIndicatorRanks.has(currentIndicator)) {
@@ -1425,33 +1422,59 @@
             const tempDiv = document.createElement('div');
             tempDiv.innerHTML = tableHTML;
             infographicContainer.appendChild(tempDiv.firstChild);
-            // --- CHANGE 2 END ---
+
+            // --- ADD LEGEND TO PDF ---
+            const mapLegend = document.getElementById('legend');
+            if (mapLegend && !mapLegend.classList.contains('hidden')) {
+                const legendForPdfContainer = document.createElement('div');
+                legendForPdfContainer.style.marginTop = '20px';
+                legendForPdfContainer.innerHTML = '<h2>Map Legend</h2>';
+
+                const clonedLegend = mapLegend.cloneNode(true);
+                // Override absolute positioning for static layout in PDF
+                clonedLegend.style.position = 'relative';
+                clonedLegend.style.bottom = 'auto';
+                clonedLegend.style.right = 'auto';
+                clonedLegend.style.margin = '10px auto'; // Center it
+                clonedLegend.classList.remove('hidden');
+
+                legendForPdfContainer.appendChild(clonedLegend);
+                infographicContainer.appendChild(legendForPdfContainer);
+            }
+            // --- END LEGEND ---
 
             const footer = document.createElement('div');
             footer.className = 'infographic-footer';
             footer.innerHTML = `<p><strong>Source:</strong> ${source}</p>${brandingHtml}`;
             infographicContainer.appendChild(footer);
+
+            const opt = {
+              margin:       0.25,
+              filename:     `${regionName.replace(/\s/g, '_')}_infographic.pdf`,
+              image:        { type: 'jpeg', quality: 0.98 },
+              html2canvas:  { 
+                  scale: 2, 
+                  useCORS: true,
+                  // This onclone callback fixes the blank PDF issue by ensuring the
+                  // off-screen element is visible for the rendering process.
+                  onclone: (document) => {
+                      document.getElementById('infographic-container').style.visibility = 'visible';
+                  }
+              },
+              jsPDF:        { unit: 'in', format: 'letter', orientation: 'portrait' }
+            };
             
-            try {
-                // --- Use html2pdf ---
-                const element = document.getElementById('infographic-container');
-                const opt = {
-                  margin:       0.2,
-                  filename:     `${regionName.replace(/\s/g, '_')}_infographic.pdf`,
-                  image:        { type: 'jpeg', quality: 0.98 },
-                  html2canvas:  { scale: 2, useCORS: true },
-                  jsPDF:        { unit: 'in', format: 'letter', orientation: 'portrait' }
-                };
-
-                html2pdf().from(element).set(opt).save();
-
-                showMessage('PDF download started.', 'green');
-            } catch (error) {
-                console.error("Error generating PDF:", error);
-                showMessage('Could not generate PDF.', 'red');
-            } finally {
-                infographicContainer.innerHTML = '';
-            }
+            // Use promise-based syntax for cleaner handling
+            html2pdf().from(infographicContainer).set(opt).save()
+                .then(() => {
+                    showMessage('PDF download started.', 'green');
+                    infographicContainer.innerHTML = ''; // Clean up after success
+                })
+                .catch((err) => {
+                    console.error("Error generating PDF:", err);
+                    showMessage('Could not generate PDF.', 'red');
+                    infographicContainer.innerHTML = ''; // Clean up on error
+                });
         }
 
         function populateDataSidebar(properties) {
