@@ -447,9 +447,28 @@
         #infographic-container img {
             max-width: 100%; height: auto; border: 1px solid #eee;
         }
+        #infographic-container .wiki-content {
+            display: flex;
+            gap: 20px;
+            align-items: flex-start;
+            margin-bottom: 20px;
+        }
         #infographic-container .wiki-intro {
-            font-size: 14px; line-height: 1.6; margin-bottom: 20px;
+            flex: 3;
+            font-size: 14px; line-height: 1.6;
             padding: 15px; background-color: #f8f9fa; border-left: 4px solid var(--cdp-teal);
+        }
+        #infographic-container .wiki-images {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        #infographic-container .wiki-images img {
+            width: 100%;
+            height: auto;
+            border: 1px solid #ddd;
+            border-radius: 4px;
         }
         #infographic-container table {
             width: 100%; border-collapse: collapse; font-size: 11px; /* smaller font */
@@ -461,12 +480,19 @@
             background-color: #f2f2f2; text-align: center;
         }
         #infographic-container td:nth-child(n+2) { text-align: center; }
-        #infographic-container .data-source-footer {
+        #infographic-container .infographic-footer {
             margin-top: 25px; padding-top: 15px; border-top: 1px solid #ccc;
             font-size: 12px; color: #666;
         }
-        #infographic-container .data-source-footer p { margin-bottom: 5px; }
-        #infographic-container .data-source-footer strong { color: #333; }
+        #infographic-container .infographic-footer p { margin: 0; }
+        #infographic-container .infographic-footer strong { color: #333; }
+        #infographic-container .infographic-branding {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-top: 20px;
+            gap: 15px;
+        }
 
     </style>
 </head>
@@ -653,7 +679,6 @@
         function formatHistogramLabel(value, indicator) { const numValue = parseFloat(value); if (isNaN(numValue) || numValue === null) return 'N/A'; if (isPercentageIndicator(indicator)) return (numValue * 100).toFixed(0); if (isCurrencyIndicator(indicator)) return '$' + Math.round(numValue / 1000) + 'k'; return Math.round(numValue).toLocaleString(); }
         function formatIndicatorName(name) { let formattedName = name.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()); if (isPercentageIndicator(name)) formattedName += ' (%)'; else if (name.toLowerCase().endsWith('count') || name.toLowerCase() === 'total_pop') formattedName = formattedName.replace(' Count', '') + ' (Count)'; else if (isCurrencyIndicator(name)) formattedName += ' ($)'; formattedName = formattedName.replace(/(\d+)\s(\d+)/g, '$1-$2'); return formattedName; }
         
-        // ADDED: New formatting function for drill-down chart labels
         function formatDrillDownLabel(value, indicator) {
             const numValue = parseFloat(value);
             if (isNaN(numValue) || numValue === null) return 'N/A';
@@ -983,7 +1008,6 @@
                 bins[binIndex]++;
             }
 
-            // Highlighting logic for drill-down
             const selectedValue = parseFloat(clickedFeature.properties[currentIndicator]);
             let selectedValueBin = -1;
             if (!isNaN(selectedValue) && selectedValue >= min && selectedValue <= max) {
@@ -997,7 +1021,7 @@
 
             const ctx = document.getElementById(canvasId).getContext('2d');
             new Chart(ctx, {
-                type: 'bar', // Vertical chart
+                type: 'bar',
                 data: {
                     labels: labels,
                     datasets: [{
@@ -1009,15 +1033,16 @@
                     }]
                 },
                 options: {
+                    indexAxis: 'y', // MODIFIED: Makes the bar chart horizontal
                     responsive: true, maintainAspectRatio: false,
                     plugins: { legend: { display: false }, title: { display: true, text: `Detailed View: ${binLabel}` }, datalabels: { display: false } },
-                    scales: { y: { beginAtZero: true, title: { display: true, text: 'Count' } } }
+                    scales: { y: { beginAtZero: true }, x: { title: { display: true, text: 'Count' } } }
                 }
             });
         }
 
         function showDrillDownPopup(event, features, binLabel) {
-            dismissDrillDownPopup();
+            dismissDrillDownPopup(); 
 
             const popup = document.createElement('div');
             popup.className = 'drilldown-popup';
@@ -1036,19 +1061,18 @@
             document.body.appendChild(popup);
             activeDrillDownPopup = popup;
 
-            // Position adjustment logic
+            // Adjust position to stay in viewport
             popup.style.left = `${event.x}px`;
             popup.style.top = `${event.y}px`;
             const rect = popup.getBoundingClientRect();
             if (rect.right > window.innerWidth) {
-                popup.style.left = `${window.innerWidth - rect.width}px`;
+                popup.style.left = `${window.innerWidth - rect.width / 2 - 10}px`;
             }
             if (rect.left < 0) {
-                popup.style.left = `0px`;
+                popup.style.left = `${rect.width / 2 + 10}px`;
             }
             if (rect.top < 0) {
-                 popup.style.top = `${event.y + 10}px`;
-                 popup.style.transform = `translate(-50%, 5%)`;
+                 popup.style.top = `${rect.height + 10}px`;
             }
 
 
@@ -1147,7 +1171,7 @@
                         if (elements.length === 0) return;
                         const index = elements[0].index;
                         const featuresInBin = binnedFeatures[index];
-                        if (featuresInBin && featuresInBin.length > 1) { // Only drill down if there's more than one member
+                        if (featuresInBin && featuresInBin.length > 1) { 
                             showDrillDownPopup(event.native, featuresInBin, finalLabels[index]);
                         } else {
                            dismissDrillDownPopup();
@@ -1159,7 +1183,7 @@
             });
         }
         
-        async function getWikipediaIntro(properties, layerKey) {
+        async function getWikipediaInfo(properties, layerKey) {
             const layerType = getLayerType(layerKey);
             let baseQuery = getRegionName(properties, layerKey);
             const provinceName = cleanProvinceName(properties.PRNAME);
@@ -1173,28 +1197,38 @@
                     baseQuery = properties.CMANAME || properties.CDNAME;
                  }
             }
-            if (!baseQuery) return null;
+            if (!baseQuery) return { intro: null, imageUrls: [] };
 
             let finalQuery = baseQuery;
             if (layerType !== 'PR_' && provinceName && !baseQuery.toLowerCase().includes(provinceName.toLowerCase())) {
                 finalQuery = `${baseQuery}, ${provinceName}`;
             }
 
-            const url = `https://en.wikipedia.org/w/api.php?action=query&prop=extracts&exintro&explaintext&format=json&redirects=1&origin=*&titles=${encodeURIComponent(finalQuery)}`;
+            const introUrl = `https://en.wikipedia.org/w/api.php?action=query&prop=extracts&exintro&explaintext&format=json&redirects=1&origin=*&titles=${encodeURIComponent(finalQuery)}`;
+            const imageUrl = `https://en.wikipedia.org/w/api.php?action=query&titles=${encodeURIComponent(finalQuery)}&generator=images&gimlimit=5&prop=imageinfo&iiprop=url&format=json&origin=*`;
+
             try {
-                const response = await fetch(url);
-                const data = await response.json();
-                const pages = data.query.pages;
+                const [introResponse, imageResponse] = await Promise.all([fetch(introUrl), fetch(imageUrl)]);
+                const introData = await introResponse.json();
+                const imageData = await imageResponse.json();
+
+                const pages = introData.query.pages;
                 const pageId = Object.keys(pages)[0];
-                if (pageId === "-1") {
-                    console.log(`No Wikipedia article found for "${finalQuery}".`);
-                    return null;
+                const intro = (pageId !== "-1") ? pages[pageId].extract : null;
+
+                let imageUrls = [];
+                if (imageData.query && imageData.query.pages) {
+                    imageUrls = Object.values(imageData.query.pages)
+                        .filter(page => page.imageinfo && !page.title.toLowerCase().endsWith('.svg')) // Filter out SVGs
+                        .map(page => page.imageinfo[0].url)
+                        .slice(0, 2); // Take the first two
                 }
-                const extract = pages[pageId].extract;
-                return extract || null;
+
+                return { intro, imageUrls };
+
             } catch (error) {
                 console.error("Wikipedia API error:", error);
-                return null;
+                return { intro: null, imageUrls: [] };
             }
         }
         
@@ -1205,44 +1239,55 @@
             }
             showMessage('Generating infographic...', 'blue');
 
+            // Bar chart gets labels
             rankingChart.options.plugins.datalabels.display = true;
             rankingChart.update('none');
             const rankingChartImg = rankingChart.toBase64Image();
             rankingChart.options.plugins.datalabels.display = false;
             rankingChart.update('none');
 
-            let histogramChartImg = null;
-            if (histogramChart) {
-                histogramChart.options.plugins.datalabels.display = true;
-                histogramChart.update('none');
-                histogramChartImg = histogramChart.toBase64Image();
-                histogramChart.options.plugins.datalabels.display = false;
-                histogramChart.update('none');
-            }
+            // Histogram does NOT get labels
+            const histogramChartImg = histogramChart ? histogramChart.toBase64Image() : null;
 
             const properties = clickedFeature.properties;
-            const wikiIntro = await getWikipediaIntro(properties, activeLayerKey);
+            const wikiInfo = await getWikipediaInfo(properties, activeLayerKey);
             const measureSet = allMeasuresInfo[activeYear] || {};
             const indicatorInfo = measureSet[currentIndicator] || {};
             const definition = indicatorInfo.definition || 'Not available.';
             const source = indicatorInfo.source || 'Not available.';
             const regionName = getRegionName(properties, activeLayerKey);
-            const indicatorTitle = formatIndicatorName(currentIndicator);
             
             const infographicContainer = document.getElementById('infographic-container');
             const tableToClone = document.getElementById('indicator-table');
             
-            const wikiHtml = wikiIntro ? `
-                <h2>About ${regionName}</h2>
-                <div class="wiki-intro">${wikiIntro}</div>
-            ` : '';
+            let wikiHtml = '';
+            if (wikiInfo.intro || wikiInfo.imageUrls.length > 0) {
+                const imagesHtml = wikiInfo.imageUrls.map(url => `<img src="${url}" crossorigin="anonymous" />`).join('');
+                wikiHtml = `
+                    <h2>About ${regionName}</h2>
+                    <div class="wiki-content">
+                        ${wikiInfo.intro ? `<div class="wiki-intro">${wikiInfo.intro}</div>` : ''}
+                        ${imagesHtml ? `<div class="wiki-images">${imagesHtml}</div>` : ''}
+                    </div>
+                `;
+            }
+
+            const brandingHtml = `
+                <div class="infographic-branding">
+                    <img src="icon.png" style="height: 40px;" crossorigin="anonymous" />
+                    <p>Produced by The Community Data Program</p>
+                </div>
+            `;
 
             infographicContainer.innerHTML = `
                 <h1>${regionName} - ${activeYear}</h1>
-                <h3 class="infographic-subtitle">Demographic Snapshot</h3>
+                <h3 class="infographic-subtitle">${formatIndicatorName(currentIndicator)}</h3>
+                
                 ${wikiHtml}
-                <h2>About the Indicator: ${indicatorTitle.replace(/ \(.+\)/, '')}</h2>
+
+                <h2>About the Indicator</h2>
                 <p style="padding: 0 10px 15px 10px; font-size: 14px; line-height: 1.6;">${definition}</p>
+
                 <div class="chart-container">
                     <div class="chart-wrapper">
                         <h2>Ranking Comparison</h2>
@@ -1259,12 +1304,12 @@
             infographicContainer.appendChild(tableToClone.cloneNode(true));
             
             const footer = document.createElement('div');
-            footer.className = 'data-source-footer';
-            footer.innerHTML = `<p><strong>Source:</strong> ${source}</p>`;
+            footer.className = 'infographic-footer';
+            footer.innerHTML = `<p><strong>Source:</strong> ${source}</p>${brandingHtml}`;
             infographicContainer.appendChild(footer);
             
             try {
-                const canvas = await html2canvas(infographicContainer, { scale: 2 });
+                const canvas = await html2canvas(infographicContainer, { scale: 2, useCORS: true });
                 const link = document.createElement('a');
                 link.download = `${regionName.replace(/\s/g, '_')}_infographic.png`;
                 link.href = canvas.toDataURL("image/png");
