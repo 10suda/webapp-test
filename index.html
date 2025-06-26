@@ -942,7 +942,7 @@
         
         async function getWikipediaIntro(properties, layerKey) {
             const layerType = getLayerType(layerKey);
-            let- `searchQuery` = getRegionName(properties, layerKey);
+            let searchQuery = getRegionName(properties, layerKey);
             
             // For smaller geographies, try to find a more relevant parent article
             if (['CT_', 'CSD_'].includes(layerType)) {
