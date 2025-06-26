@@ -474,7 +474,7 @@
             table-layout: fixed; /* Helps contain long text */
         }
         #infographic-container th, #infographic-container td {
-            border: 1px solid #ddd; padding: 5px; text-align: left;
+            border: 1px solid #ddd; padding: 6px; text-align: left;
             word-wrap: break-word; /* Allows long definitions to wrap */
         }
         #infographic-container th {
@@ -1007,7 +1007,7 @@
                         updateLegendIndicator();
                     }
                 }, 
-                plugins: { legend: { display: false }, title: { display: true, text: `Top and Bottom 5 for ${formatIndicatorName(currentIndicator)}` }, tooltip: { callbacks: { label: function(context) { let label = context.dataset.label || ''; if (label) { label = label.replace(/ \(.+\)/, ''); label += ': '; } if (context.parsed.x !== null) { label += formatValue(context.parsed.x, currentIndicator); } return label; } } }, datalabels: { display: false, anchor: 'end', align: 'end', formatter: (value, context) => formatValue(value, currentIndicator), color: (context) => { const bgColor = context.dataset.backgroundColor[context.dataIndex]; return chroma(bgColor).luminance() > 0.4 ? '#333' : 'white'; }, font: { weight: 'bold' }, textStrokeColor: 'black', textStrokeWidth: 0.5 } }, scales: { x: { ticks: { callback: function(value, index, values) { if(isPercentageIndicator(currentIndicator)) { return (value * 100).toFixed(0) + '%'; } if (isCurrencyIndicator(currentIndicator)) { return '$' + Math.round(value / 1000) + 'k'; } return Math.round(value).toLocaleString(); } } } } } });
+                plugins: { legend: { display: false }, title: { display: true, text: `Top and Bottom 5 for ${formatIndicatorName(currentIndicator)}` }, tooltip: { callbacks: { label: function(context) { let label = context.dataset.label || ''; if (label) { label = label.replace(/ \(.+\)/, ''); label += ': '; } if (context.parsed.x !== null) { label += formatValue(context.parsed.x, currentIndicator); } return label; } } }, datalabels: { display: false, anchor: 'end', align: 'end', formatter: (value, context) => formatValue(value, currentIndicator), color: (context) => { const bgColor = context.dataset.backgroundColor[context.dataIndex]; return chroma(bgColor).luminance() > 0.4 ? '#333' : 'white'; }, font: { weight: 'bold' } } }, scales: { x: { ticks: { callback: function(value, index, values) { if(isPercentageIndicator(currentIndicator)) { return (value * 100).toFixed(0) + '%'; } if (isCurrencyIndicator(currentIndicator)) { return '$' + Math.round(value / 1000) + 'k'; } return Math.round(value).toLocaleString(); } } } } } });
         }
         
         function getIndicatorDistribution() {
@@ -1099,7 +1099,7 @@
                 options: {
                     indexAxis: 'y',
                     responsive: true, maintainAspectRatio: false,
-                    plugins: { legend: { display: false }, title: { display: true, text: drillDownTitle }, datalabels: { display: false } },
+                    plugins: { legend: { display: false }, title: { display: true, text: drillDownTitle }, datalabels: { display: true, formatter: (v) => v > 0 ? v : '' } },
                     scales: { y: { beginAtZero: true }, x: { title: { display: true, text: 'Count' } } }
                 }
             });
@@ -1295,6 +1295,7 @@
             }
         }
         
+        // --- MODIFIED FUNCTION START: downloadPdf ---
         async function downloadPdf() {
             if (!clickedFeature) {
                 alert("Please click on a geography first.");
@@ -1302,14 +1303,37 @@
             }
             showMessage('Generating PDF...', 'blue');
 
+            // --- CHART IMAGE GENERATION ---
+            // 1. Generate Ranking Chart Image (with labels enabled)
             rankingChart.options.plugins.datalabels.display = true;
             rankingChart.update('none');
             const rankingChartImg = rankingChart.toBase64Image();
-            rankingChart.options.plugins.datalabels.display = false;
+            rankingChart.options.plugins.datalabels.display = false; // Revert for web display
             rankingChart.update('none');
 
-            const histogramChartImg = histogramChart ? histogramChart.toBase64Image() : null;
+            // 2. Generate a special Histogram Image for the PDF (flipped, with labels)
+            let histogramChartImgPdf = null;
+            if (histogramChart) {
+                // Temporarily modify the chart options for the PDF
+                histogramChart.options.indexAxis = 'y'; // Flip axis to be horizontal
+                histogramChart.options.plugins.datalabels.display = true; // Enable data labels
+                histogramChart.options.plugins.datalabels.formatter = (value) => value > 0 ? value.toLocaleString() : '';
+                histogramChart.options.plugins.datalabels.color = '#333';
+                histogramChart.options.plugins.datalabels.anchor = 'end';
+                histogramChart.options.plugins.datalabels.align = 'start';
+                histogramChart.options.plugins.datalabels.offset = -25; // Negative offset to bring it inside the bar
+                histogramChart.options.plugins.datalabels.font = { weight: 'bold' };
+                
+                histogramChart.update('none'); // Update with new options
+                histogramChartImgPdf = histogramChart.toBase64Image(); // Capture the image
 
+                // Revert options back to normal for the on-screen chart
+                histogramChart.options.indexAxis = 'x';
+                histogramChart.options.plugins.datalabels.display = false;
+                histogramChart.update('none');
+            }
+
+            // --- GATHER METADATA ---
             const properties = clickedFeature.properties;
             const wikiInfo = await getWikipediaInfo(properties, activeLayerKey);
             const measureSet = allMeasuresInfo[activeYear] || {};
@@ -1320,6 +1344,7 @@
             
             const infographicContainer = document.getElementById('infographic-container');
             
+            // --- BUILD INFOGRAPHIC HTML ---
             let wikiHtml = '';
             if (wikiInfo.intro || (wikiInfo.imageUrls && wikiInfo.imageUrls.length > 0)) {
                 const imagesHtml = wikiInfo.imageUrls.map(url => `<img src="${url}" crossorigin="anonymous" />`).join('');
@@ -1339,7 +1364,6 @@
                 </div>
             `;
             
-            // --- CHANGE 1 START: Relocate indicator name and remove old subtitle ---
             infographicContainer.innerHTML = `
                 <h1>${regionName} - ${activeYear}</h1>
                 ${wikiHtml}
@@ -1350,17 +1374,16 @@
                         <h2>Ranking Comparison</h2>
                         <img src="${rankingChartImg}" crossorigin="anonymous" />
                     </div>
-                    ${histogramChartImg ? `
+                    ${histogramChartImgPdf ? `
                     <div class="chart-wrapper">
                         <h2>Indicator Distribution</h2>
-                        <img src="${histogramChartImg}" crossorigin="anonymous" />
+                        <img src="${histogramChartImgPdf}" crossorigin="anonymous" />
                     </div>` : ''}
                 </div>
                 <h2>Data for Selected Area</h2>
             `;
-            // --- CHANGE 1 END ---
 
-            // --- CHANGE 2 START: Build a new table with definitions ---
+            // Build the data table with definitions
             const uid = getRegionUID(properties, activeLayerKey);
             let rankHeader = 'Rank';
             if (allIndicatorRanks.has(currentIndicator)) {
@@ -1374,36 +1397,24 @@
             let tableHTML = `<table id="infographic-table"><thead><tr><th>Indicator Definition</th><th>Count</th><th>% or $</th><th>${rankHeader}</th></tr></thead><tbody>`;
             
             if (properties.hasOwnProperty('total_pop')) {
-                const indicatorKey = 'total_pop';
-                const defInfo = measureSet[indicatorKey] || {};
+                const defInfo = measureSet['total_pop'] || {};
                 const tableDefinition = defInfo.definition || "Total number of persons living in the geography.";
-                const countValueCell = getValueCell(properties, indicatorKey);
-                const percentValueCell = '<td></td>';
                 let rankCell = '<td>N/A</td>';
-                if (allIndicatorRanks.has(indicatorKey)) {
-                    const rankMap = allIndicatorRanks.get(indicatorKey);
-                    if (rankMap.has(uid)) {
-                        rankCell = `<td class="text-center font-bold">${rankMap.get(uid).rank}</td>`;
-                    }
+                if (allIndicatorRanks.has('total_pop') && allIndicatorRanks.get('total_pop').has(uid)) {
+                    rankCell = `<td class="text-center font-bold">${allIndicatorRanks.get('total_pop').get(uid).rank}</td>`;
                 }
-                tableHTML += `<tr><td>${tableDefinition}</td>${countValueCell}${percentValueCell}${rankCell}</tr>`;
+                tableHTML += `<tr><td>${tableDefinition}</td>${getValueCell(properties, 'total_pop')}<td></td>${rankCell}</tr>`;
             }
             
             const indicatorPairs = {}; 
-            const otherIndicators = allIndicators.filter(ind => ind.toLowerCase() !== 'total_pop');
-            otherIndicators.forEach(indicator => { 
+            allIndicators.filter(ind => ind.toLowerCase() !== 'total_pop').forEach(indicator => { 
                 const baseName = indicator.replace(/_count$/i, ''); 
                 if (!indicatorPairs[baseName]) indicatorPairs[baseName] = {}; 
-                if (indicator.toLowerCase().endsWith('count')) {
-                    indicatorPairs[baseName].count = indicator;
-                } else {
-                    indicatorPairs[baseName].percent = indicator;
-                }
+                indicator.toLowerCase().endsWith('count') ? indicatorPairs[baseName].count = indicator : indicatorPairs[baseName].percent = indicator;
             }); 
             
             for (const baseName of Object.keys(indicatorPairs).sort()) { 
-                const countInd = indicatorPairs[baseName].count; 
-                const percentInd = indicatorPairs[baseName].percent; 
+                const { count: countInd, percent: percentInd } = indicatorPairs[baseName];
                 if (!countInd && !percentInd) continue;
 
                 const indicatorForKey = percentInd || countInd;
@@ -1411,45 +1422,39 @@
                 const tableDefinition = defInfo.definition || 'Definition not available.';
                 
                 let rankCell = '<td></td>';
-                if(percentInd && allIndicatorRanks.has(percentInd)) {
-                     const rankMapForInd = allIndicatorRanks.get(percentInd);
-                     if (rankMapForInd.has(uid)) {
-                         rankCell = `<td class="text-center font-bold">${rankMapForInd.get(uid).rank}</td>`;
-                     } else {
-                        rankCell = '<td>N/A</td>';
-                     }
+                if(percentInd && allIndicatorRanks.has(percentInd) && allIndicatorRanks.get(percentInd).has(uid)) {
+                     rankCell = `<td class="text-center font-bold">${allIndicatorRanks.get(percentInd).get(uid).rank}</td>`;
                 }
                 tableHTML += `<tr><td>${tableDefinition}</td>${getValueCell(properties, countInd)}${getValueCell(properties, percentInd)}${rankCell}</tr>`; 
             } 
             
             tableHTML += '</tbody></table>';
-            const tempDiv = document.createElement('div');
-            tempDiv.innerHTML = tableHTML;
-            infographicContainer.appendChild(tempDiv.firstChild);
-            // --- CHANGE 2 END ---
+            infographicContainer.innerHTML += tableHTML;
 
             const footer = document.createElement('div');
             footer.className = 'infographic-footer';
             footer.innerHTML = `<p><strong>Source:</strong> ${source}</p>${brandingHtml}`;
             infographicContainer.appendChild(footer);
             
+            // --- PDF RENDERING ---
             try {
-                // --- CHANGE 3 START: Reduce html2canvas scale for smaller PDF resolution ---
-                const canvas = await html2canvas(infographicContainer, { scale: 1, useCORS: true });
-                // --- CHANGE 3 END ---
-
+                // Use a higher scale for better resolution/clarity
+                const canvas = await html2canvas(infographicContainer, { scale: 3, useCORS: true });
                 const imgData = canvas.toDataURL('image/png');
-                const canvasWidth = canvas.width;
-                const canvasHeight = canvas.height;
+                
+                // Define PDF page size in 'points' (pt) for standard document sizing
+                const pdfWidth = infographicContainer.offsetWidth; // Use base width, e.g., 850pt
+                const pdfHeight = (canvas.height * pdfWidth) / canvas.width; // Calculate height to maintain aspect ratio
                 
                 const { jsPDF } = window.jspdf;
                 const doc = new jsPDF({
-                    orientation: canvasWidth > canvasHeight ? 'l' : 'p',
-                    unit: 'px',
-                    format: [canvasWidth, canvasHeight]
+                    orientation: 'p',
+                    unit: 'pt',
+                    format: [pdfWidth, pdfHeight]
                 });
 
-                doc.addImage(imgData, 'PNG', 0, 0, canvasWidth, canvasHeight);
+                // Add the high-resolution image, fitting it to the PDF page dimensions
+                doc.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
                 doc.save(`${regionName.replace(/\s/g, '_')}_infographic.pdf`);
 
                 showMessage('PDF download started.', 'green');
@@ -1457,9 +1462,10 @@
                 console.error("Error generating PDF:", error);
                 showMessage('Could not generate PDF.', 'red');
             } finally {
-                infographicContainer.innerHTML = '';
+                infographicContainer.innerHTML = ''; // Clean up
             }
         }
+        // --- MODIFIED FUNCTION END ---
 
         function populateDataSidebar(properties) {
             const uid = getRegionUID(properties, activeLayerKey);
