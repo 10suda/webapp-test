@@ -503,9 +503,71 @@
 
 
     <script>
-    document.addEventListener('DOMContentLoaded', () => {
+    document.addEventListener('DOMContentLoaded', async () => {
         // Register the datalabels plugin globally. It will be enabled on a per-chart basis.
         Chart.register(ChartDataLabels);
+
+        // --- Global Variables ---
+        let allMeasuresInfo = {};
+        let loadedLayers = {}; 
+        let activeYear = null;
+        let activeLayerKey = null; 
+        let currentIndicator;
+        let indicatorScales = {};
+        let allIndicators = []; 
+        let clickedFeature = null; 
+        let clickedLayer = null;  
+        let tappedFeatureLayer = null; 
+        let rankingChart = null;
+        let histogramChart = null;
+        let allIndicatorRanks = new Map();
+        let activeRanks = new Map();
+        const idKeys = ['CDUID', 'PRUID', 'CSDUID', 'CTUID', 'CMAUID', 'CMAPUID'];
+        const nameKeys = ['CDNAME', 'PRNAME', 'CSDNAME', 'CTNAME', 'CMANAME'];
+        const layerOrder = ['PR_', 'CMA_', 'CD_', 'CSD_', 'CT_'];
+        const indicatorNameMap = { 'aboriginal_population_count': 'indigenous_population_count', 'aboriginal_population': 'indigenous_population', 'educational_disadvantage_aged_20_24_count': 'educational_disadvantage_youth_20_24_count', 'educational_disadvantage_aged_20_24': 'educational_disadvantage_youth_20_24', 'educational_assets_aged_20_34_count': 'educational_assets_youth_20_34_count', 'educational_assets_aged_20_34': 'educational_assets_youth_20_34', 'educational_assets_aged_35_64_count': 'educational_assets_adults_35_64_count', 'educational_assets_aged_35_64': 'educational_assets_adults_35_64', 'youth_unemployment_aged_20_34_count': 'youth_unemployment_20_34_count', 'youth_unemployment_aged_20_34': 'youth_unemployment_20_34', 'adult_unemployment_aged_35_64_count': 'adult_unemployment_35_64_count', 'adult_unemployment_aged_35_64': 'adult_unemployment_35_64', 'aboriginal_youth_aged_15_24_count': 'indigenous_youth_aged_15_24_count', 'aboriginal_youth_aged_15_24': 'indigenous_youth_aged_15_24', 'low_wage_employment_25plus_count': 'low_wage_employment_25_count', 'low_wage_employment_25plus': 'low_wage_employment_25', 'avg_after-tax_income_25plus': 'avg_after_tax_income_25_over' };
+        const indicatorSelect = document.getElementById('indicator-select');
+        const indicatorContainer = document.getElementById('indicator-selector-container');
+        const yearControlContainer = document.getElementById('year-control-container');
+        const layerControlContainer = document.getElementById('layer-control-container');
+        const infoBox = document.getElementById('info-box');
+        const legend = document.getElementById('legend');
+        const dataSidebar = document.getElementById('data-sidebar');
+        const messageBox = document.getElementById('message-box');
+        const layerNameMap = { 'PR_': 'Province', 'CMA_': 'Census Metropolitan Area', 'CD_': 'Census Division', 'CSD_': 'Census Subdivision', 'CT_': 'Census Tract' };
+        const layerButtonNameMap = { 'PR_': 'Province', 'CMA_': 'CMA', 'CD_': 'Census Division', 'CSD_': 'Census Subdivision', 'CT_': 'Census Tract' };
+        const fallbackZoomLevels = { 'PR_': 5, 'CD_': 7, 'CMA_': 8, 'CSD_': 10, 'CT_': 12 };
+        const indicatorInfoBox = document.getElementById('indicator-info');
+        const indicatorDefinitionSpan = document.getElementById('indicator-definition');
+        const indicatorSourceSpan = document.getElementById('indicator-source');
+        
+        // --- Functions ---
+        
+        // MODIFIED: Function to load and transform measure definitions from external JSON files
+        async function loadMeasuresInfo() {
+            const years = ['2011', '2016'];
+            for (const year of years) {
+                try {
+                    const response = await fetch(`data/measures_${year}.json`);
+                    if (!response.ok) throw new Error(`${year} measures file not found.`);
+                    const measuresArray = await response.json();
+                    
+                    // Transform the array into an object indexed by the 'name' property
+                    allMeasuresInfo[year] = measuresArray.reduce((acc, measure) => {
+                        acc[measure.name] = {
+                            definition: measure.definition,
+                            source: measure.source
+                        };
+                        return acc;
+                    }, {});
+
+                    console.log(`Loaded and transformed ${year} indicator definitions.`);
+                } catch (error) {
+                    showMessage(`Could not load ${year} indicator definitions.`, 'orange');
+                    console.error(error);
+                }
+            }
+        }
 
         if (window.innerWidth <= 768) {
             document.body.classList.add('mobile-view');
@@ -552,67 +614,7 @@
             }
         });
         map.addControl(new resetViewControl());
-
-        const measuresInfo = {
-            "age_8_11": { "definition": "Children aged 8-11 as a % of the total population", "source": "Statistics Canada: 2016 Census Cat. no. 98-400-X2016004, 98-400-X2016005" },
-            "age_12_19": { "definition": "Children aged 12-19 as a % of the total population", "source": "Statistics Canada: 2016 Census Cat. no. 98-400-X2016004, 98-400-X2016005" },
-            "lone_parent": { "definition": "Lone parent families as a % of all families", "source": "Census 2016 - Profile" },
-            "no_knowledge_of_official_languages": { "definition": "Population with no knowledge of either French or English as a % of the total population", "source": "Statistics Canada: 2016 Census Cat. no. 98-401-X2016021, 98-401-X2016053" },
-            "low_income_population": { "definition": "Population living below the after-tax Low-income measure (LIM-AT) as a % of the total population", "source": "Statistics Canada: 2016 Census Cat. no. 98-401-X2016021, 98-401-X2016053" },
-            "modest_income": { "definition": "% of the population with income greater than the after-tax Low-income measure LIM-AT, but below the 30th income percentile", "source": "Statistics Canada: 2016 Census Cat. no. 98-401-X2016021, 98-401-X2016053" },
-            "avg_after_tax_income_25_over": { "definition": "Average after-tax income for the population aged 25+", "source": "Statistics Canada: 2016 Census Cat. no. 98-401-X2016021, 98-401-X2016055" },
-            "low_income_youth_aged_15_19": { "definition": "Population aged 20-24 with low incomes (LIM AT)", "source": "Statistics Canada: 2016 Census Cat. no. 98-401-X2016021, 98-401-X2016054" },
-            "low_income_youth_aged_20_24": { "definition": "Population aged 20-24 with low incomes (LIM AT)", "source": "Statistics Canada: 2016 Census Cat. no. 98-401-X2016021, 98-401-X2016057" },
-            "households_in_subsidised_housing": { "definition": "Households living in subsidized housing as a % of all households", "source": "Statistics Canada: 2016 Census Cat. no. 98-401-X2016021, 98-401-X2016058" },
-            "affordable_housing": { "definition": "% of households spending 30% or more of income on housing", "source": "Statistics Canada: 2016 Census Cat. no. 98-401-X2016021, 98-401-X2016059" },
-            "recent_immigrants": { "definition": "% of the population that arrived in Canada within the past 5 years", "source": "Statistics Canada: 2016 Census Cat. no. 98-401-X2016021, 98-401-X2016060" },
-            "indigenous_population": { "definition": "% of the population that self-identifies as Aboriginal", "source": "Statistics Canada: 2016 Census Cat. no. 98-401-X2016021, 98-401-X2016061" },
-            "indigenous_youth_aged_10_14": { "definition": "% of the population aged 10-14 that self-identifies as Aboriginal", "source": "Statistics Canada: 2016 Census Cat. no. 98-401-X2016021, 98-401-X2016062" },
-            "indigenous_youth_aged_15_24": { "definition": "% of the population aged 15-24 that self-identifies as Aboriginal", "source": "Statistics Canada: 2016 Census Cat. no. 98-401-X2016021, 98-401-X2016063" },
-            "immigrant_youth_aged_15_24": { "definition": "% of the population aged 15-24 that is foreign born", "source": "Statistics Canada: 2016 Census Cat. no. 98-401-X2016021, 98-401-X2016064" },
-            "visible_minority": { "definition": "% of the population that is a visible minority", "source": "Statistics Canada: 2016 Census Cat. no. 98-401-X2016021, 98-401-X2016065" },
-            "educational_disadvantage_youth_20_24": { "definition": "% of the population aged 20-24 that does not have a high school diploma or any other certificate or diploma", "source": "Statistics Canada: 2016 Census Cat. no. 98-401-X2016021, 98-401-X2016066" },
-            "highschool_youth_25_34": { "definition": "% of the population aged 25-34 with only a High school diploma or equivalent", "source": "Statistics Canada: 2016 Census Cat. no. 98-401-X2016021, 98-401-X2016067" },
-            "highschool_adult_35-64": { "definition": "% of the population aged 35-64 with only a High school diploma or equivalent", "source": "Statistics Canada: 2016 Census Cat. no. 98-401-X2016021, 98-401-X2016068" },
-            "educational_assets_youth_20_34": { "definition": "% of the population aged 20-34 that has completed a postsecondary certificate, diploma or degree", "source": "Statistics Canada: 2016 Census Cat. no. 98-401-X2016021, 98-401-X2016069" },
-            "educational_assets_adults_35_64": { "definition": "% of the population aged 35-64 year that has completed a postsecondary certificate, diploma or degree", "source": "Statistics Canada: 2016 Census Cat. no. 98-401-X2016070" },
-            "youth_unemployment_20_34": { "definition": "% of the labour force aged 20-34 that is unemployed", "source": "Statistics Canada: 2016 Census Cat. no. 98-401-X2016021, 98-401-X2016071" },
-            "adult_unemployment_35_64": { "definition": "% of the labour force aged 35-64 that is unemployed", "source": "Statistics Canada: 2016 Census Cat. no. 98-401-X2016072" },
-            "low_wage_employment_25": { "definition": "% of the population aged 25+ working in retail trade and accommodation and food services", "source": "Statistics Canada: 2016 Census Cat. no. 98-401-X2016021, 98-401-X2016072" }
-        };
-
-        let loadedLayers = {}; 
-        let activeYear = null;
-        let activeLayerKey = null; 
-        let currentIndicator;
-        let indicatorScales = {};
-        let allIndicators = []; 
-        let clickedFeature = null; 
-        let clickedLayer = null;  
-        let tappedFeatureLayer = null; 
-        let rankingChart = null;
-        let histogramChart = null;
-        let allIndicatorRanks = new Map();
-        let activeRanks = new Map();
-        const idKeys = ['CDUID', 'PRUID', 'CSDUID', 'CTUID', 'CMAUID', 'CMAPUID'];
-        const nameKeys = ['CDNAME', 'PRNAME', 'CSDNAME', 'CTNAME', 'CMANAME'];
-        const layerOrder = ['PR_', 'CMA_', 'CD_', 'CSD_', 'CT_'];
-        const indicatorNameMap = { 'aboriginal_population_count': 'indigenous_population_count', 'aboriginal_population': 'indigenous_population', 'educational_disadvantage_aged_20_24_count': 'educational_disadvantage_youth_20_24_count', 'educational_disadvantage_aged_20_24': 'educational_disadvantage_youth_20_24', 'educational_assets_aged_20_34_count': 'educational_assets_youth_20_34_count', 'educational_assets_aged_20_34': 'educational_assets_youth_20_34', 'educational_assets_aged_35_64_count': 'educational_assets_adults_35_64_count', 'educational_assets_aged_35_64': 'educational_assets_adults_35_64', 'youth_unemployment_aged_20_34_count': 'youth_unemployment_20_34_count', 'youth_unemployment_aged_20_34': 'youth_unemployment_20_34', 'adult_unemployment_aged_35_64_count': 'adult_unemployment_35_64_count', 'adult_unemployment_aged_35_64': 'adult_unemployment_35_64', 'aboriginal_youth_aged_15_24_count': 'indigenous_youth_aged_15_24_count', 'aboriginal_youth_aged_15_24': 'indigenous_youth_aged_15_24', 'low_wage_employment_25plus_count': 'low_wage_employment_25_count', 'low_wage_employment_25plus': 'low_wage_employment_25', 'avg_after-tax_income_25plus': 'avg_after_tax_income_25_over' };
-        const indicatorSelect = document.getElementById('indicator-select');
-        const indicatorContainer = document.getElementById('indicator-selector-container');
-        const yearControlContainer = document.getElementById('year-control-container');
-        const layerControlContainer = document.getElementById('layer-control-container');
-        const infoBox = document.getElementById('info-box');
-        const legend = document.getElementById('legend');
-        const dataSidebar = document.getElementById('data-sidebar');
-        const messageBox = document.getElementById('message-box');
-        const layerNameMap = { 'PR_': 'Province', 'CMA_': 'Census Metropolitan Area', 'CD_': 'Census Division', 'CSD_': 'Census Subdivision', 'CT_': 'Census Tract' };
-        const layerButtonNameMap = { 'PR_': 'Province', 'CMA_': 'CMA', 'CD_': 'Census Division', 'CSD_': 'Census Subdivision', 'CT_': 'Census Tract' };
-        const fallbackZoomLevels = { 'PR_': 5, 'CD_': 7, 'CMA_': 8, 'CSD_': 10, 'CT_': 12 };
-        const indicatorInfoBox = document.getElementById('indicator-info');
-        const indicatorDefinitionSpan = document.getElementById('indicator-definition');
-        const indicatorSourceSpan = document.getElementById('indicator-source');
-
+        
         function showMessage(text, color) { const colorClasses = { green: 'bg-green-100 text-green-800', red: 'bg-red-100 text-red-800', blue: 'bg-blue-100 text-blue-800', orange: 'bg-orange-100 text-orange-800' }; messageBox.textContent = text; messageBox.className = 'mt-2 text-sm p-2 rounded-lg ' + (colorClasses[color] || 'bg-gray-100 text-gray-800'); }
         function standardizeProperties(properties, year) { if (year !== '2011') return; for (const [oldName, newName] of Object.entries(indicatorNameMap)) { if (properties.hasOwnProperty(oldName)) { properties[newName] = properties[oldName]; delete properties[oldName]; } } if (properties.hasOwnProperty('low_income_15-24_count')) delete properties['low_income_15-24_count']; if (properties.hasOwnProperty('low_income_15-24')) delete properties['low_income_15-24']; }
         function isCurrencyIndicator(indicatorName) { return indicatorName && indicatorName.toLowerCase() === 'avg_after_tax_income_25_over'; }
@@ -672,7 +674,12 @@
         }
 
         function updateIndicatorInfo(indicatorKey) {
-            const info = measuresInfo[indicatorKey] || measuresInfo[indicatorNameMap[indicatorKey]];
+            const currentMeasures = allMeasuresInfo[activeYear];
+            if (!currentMeasures) {
+                indicatorInfoBox.classList.add('hidden');
+                return;
+            }
+            const info = currentMeasures[indicatorKey] || currentMeasures[indicatorNameMap[indicatorKey]];
             if (info) {
                 indicatorDefinitionSpan.textContent = info.definition || 'Not available.';
                 indicatorSourceSpan.textContent = info.source || 'Not available.';
@@ -744,7 +751,7 @@
             });
         }
         
-        function setActiveYear(year) { clickedFeature = null; highlightClickedFeature(null); const lastActiveLayerType = activeLayerKey ? getLayerType(activeLayerKey) : null; if (activeLayerKey && loadedLayers[activeYear] && loadedLayers[activeYear][activeLayerKey] && loadedLayers[activeYear][activeLayerKey].layer) { map.removeLayer(loadedLayers[activeYear][activeLayerKey].layer); } activeYear = year; updateYearControl(); updateLayerControl(); let nextLayerKey = null; if (lastActiveLayerType && loadedLayers[activeYear]) nextLayerKey = Object.keys(loadedLayers[activeYear]).find(key => getLayerType(key) === lastActiveLayerType); if (!nextLayerKey && loadedLayers[year]) { const sortedLayers = Object.keys(loadedLayers[year]).sort((a, b) => layerOrder.findIndex(p => a.toUpperCase().includes(p)) - layerOrder.findIndex(p => b.toUpperCase().includes(p))); nextLayerKey = sortedLayers[0]; } if (nextLayerKey) { setActiveLayer(nextLayerKey); } else { if (activeLayerKey) { if(loadedLayers[activeYear] && loadedLayers[activeYear][activeLayerKey] && loadedLayers[activeYear][activeLayerKey].layer) { map.removeLayer(loadedLayers[activeYear][activeLayerKey].layer); } activeLayerKey = null; } legend.classList.add('hidden'); } }
+        function setActiveYear(year) { clickedFeature = null; highlightClickedFeature(null); const lastActiveLayerType = activeLayerKey ? getLayerType(activeLayerKey) : null; if (activeLayerKey && loadedLayers[activeYear] && loadedLayers[activeYear][activeLayerKey] && loadedLayers[activeYear][activeLayerKey].layer) { map.removeLayer(loadedLayers[activeYear][activeLayerKey].layer); } activeYear = year; updateYearControl(); updateLayerControl(); let nextLayerKey = null; if (lastActiveLayerType && loadedLayers[activeYear]) nextLayerKey = Object.keys(loadedLayers[activeYear]).find(key => getLayerType(key) === lastActiveLayerType); if (!nextLayerKey && loadedLayers[year]) { const sortedLayers = Object.keys(loadedLayers[year]).sort((a, b) => layerOrder.findIndex(p => a.toUpperCase().includes(p)) - layerOrder.findIndex(p => b.toUpperCase().includes(p))); nextLayerKey = sortedLayers[0]; } if (nextLayerKey) { setActiveLayer(nextLayerKey); } else { if (activeLayerKey) { if(loadedLayers[activeYear] && loadedLayers[activeYear][activeLayerKey] && loadedLayers[activeYear][activeLayerKey].layer) { map.removeLayer(loadedLayers[activeYear][activeLayerKey].layer); } activeLayerKey = null; } legend.classList.add('hidden'); } updateIndicatorInfo(currentIndicator); }
         function setActiveLayer(filename) { if (!IS_MOBILE_VIEW) { map.setView([62, -96], 4); } dataSidebar.classList.remove('visible'); clickedFeature = null; highlightClickedFeature(null); updateLegendIndicator(); if (activeLayerKey && loadedLayers[activeYear] && loadedLayers[activeYear][activeLayerKey] && loadedLayers[activeYear][activeLayerKey].layer) { map.removeLayer(loadedLayers[activeYear][activeLayerKey].layer); } activeLayerKey = filename; updateLayerControl(); updateMapStyles(); calculateAllRanksForLayer(); calculateCurrentIndicatorRanks(); }
         function updateMapStyles() { if (!activeYear || !activeLayerKey || !loadedLayers[activeYear] || !loadedLayers[activeYear][activeLayerKey] || !currentIndicator) return; if (loadedLayers[activeYear][activeLayerKey].layer) { map.removeLayer(loadedLayers[activeYear][activeLayerKey].layer); } const geojson = loadedLayers[activeYear][activeLayerKey].geojson; const values = geojson.features.map(f => parseFloat(f.properties[currentIndicator])).filter(v => !isNaN(v) && isFinite(v)); if (values.length === 0) { const newLayer = L.geoJSON(geojson, { style: styleFeature(null, null), onEachFeature: onEachFeature }).addTo(map); loadedLayers[activeYear][activeLayerKey].layer = newLayer; legend.classList.add('hidden'); showMessage(`Indicator "${formatIndicatorName(currentIndicator)}" not found in ${activeLayerKey} data.`, 'orange'); return; } const currentScale = chroma.scale('viridis').domain(getBreaks(values, 5)); indicatorScales[currentIndicator] = currentScale; const newLayer = L.geoJSON(geojson, { style: (f) => styleFeature(f, currentScale), onEachFeature: onEachFeature }).addTo(map); loadedLayers[activeYear][activeLayerKey].layer = newLayer; updateLegend(currentScale, currentIndicator); }
         function getBreaks(data, numBreaks) { const sortedData = [...new Set(data)].sort((a, b) => a - b); if (sortedData.length === 0) return [0, 1]; const min = sortedData[0]; const max = sortedData[sortedData.length - 1]; if (sortedData.length < numBreaks) return [min, max]; const breaks = []; for (let i = 0; i < numBreaks; i++) { breaks.push(min + (i / (numBreaks - 1)) * (max - min)); } return breaks; }
@@ -1073,12 +1080,13 @@
 
             const properties = clickedFeature.properties;
             const wikiIntro = await getWikipediaIntro(properties, activeLayerKey);
-            const indicatorInfo = measuresInfo[currentIndicator] || {};
+            const measureSet = allMeasuresInfo[activeYear] || {};
+            const indicatorInfo = measureSet[currentIndicator] || {};
             const definition = indicatorInfo.definition || 'Not available.';
             const source = indicatorInfo.source || 'Not available.';
             const regionName = getRegionName(properties, activeLayerKey);
             const indicatorTitle = formatIndicatorName(currentIndicator);
-
+            
             const infographicContainer = document.getElementById('infographic-container');
             const tableToClone = document.getElementById('indicator-table');
             
@@ -1264,7 +1272,9 @@
         }
         indicatorSelect.addEventListener('change', (e) => { changeIndicator(e.target.value, false); });
         
-        loadInitialData();
+        // --- Initial Load ---
+        await loadMeasuresInfo();
+        await loadInitialData();
     });
     </script>
 </body>
