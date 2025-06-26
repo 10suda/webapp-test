@@ -24,8 +24,10 @@
     
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0/dist/chartjs-plugin-datalabels.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js" integrity="sha512-BNaRQnYJYiPSqHHDb58B0yaPfCu+Wgds8Gp/gU33kqBtgNS4tSPHuGibyoeqMV/TJlSKda6FXzoEyYGjTe+vXA==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js" integrity="sha512-qZvrmS2ekKPF2mSznTQsxqPgnpkI4DNTlrdUmTzrDgektczlKNRRhy5X5AAOnx5S09ydFYWWNSfcEqDTTHgtNA==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+
 
     <style>
         /* CDP Brand Colors */
@@ -174,16 +176,16 @@
             font-weight: bold;
         }
         .legend {
-             position: absolute;
-             bottom: 30px;
-             right: 10px;
-             padding: 10px;
-             background: rgba(255, 255, 255, 0.9);
-             box-shadow: 0 0 15px rgba(0,0,0,0.2);
-             border-radius: 5px;
-             z-index: 1000;
-             line-height: 18px;
-             width: 200px;
+              position: absolute;
+              bottom: 30px;
+              right: 10px;
+              padding: 10px;
+              background: rgba(255, 255, 255, 0.9);
+              box-shadow: 0 0 15px rgba(0,0,0,0.2);
+              border-radius: 5px;
+              z-index: 1000;
+              line-height: 18px;
+              width: 200px;
         }
         .legend .color-bar {
             height: 12px;
@@ -517,8 +519,8 @@
                  <select id="indicator-select" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-teal-500 focus:border-teal-500 block w-full p-2.5">
                  </select>
                  <div id="indicator-info" class="mt-2 p-3 bg-gray-200 rounded-lg text-sm text-gray-800 space-y-2 hidden">
-                     <p><strong>Definition:</strong><br><span id="indicator-definition"></span></p>
-                     <p><strong>Source:</strong><br><span id="indicator-source"></span></p>
+                      <p><strong>Definition:</strong><br><span id="indicator-definition"></span></p>
+                      <p><strong>Source:</strong><br><span id="indicator-source"></span></p>
                  </div>
             </div>
         </aside>
@@ -577,7 +579,7 @@
         let indicatorScales = {};
         let allIndicators = []; 
         let clickedFeature = null; 
-        let clickedLayer = null;  
+        let clickedLayer = null; 
         let tappedFeatureLayer = null; 
         let rankingChart = null;
         let histogramChart = null;
@@ -991,16 +993,16 @@
                         if(targetLayer) {
                              highlightClickedFeature(targetLayer);
                              if (!IS_MOBILE_VIEW) {
-                                try {
-                                    const bounds = targetLayer.getBounds();
-                                    if (bounds && bounds.isValid()) {
-                                        map.fitBounds(bounds, { paddingTopLeft: [document.getElementById('sidebar').offsetWidth + 20, 40], paddingBottomRight: [dataSidebar.offsetWidth + 20, 40] });
-                                    } else {
-                                        map.flyTo(targetLayer.getBounds().getCenter(), fallbackZoomLevels[getLayerType(activeLayerKey)] || 8);
-                                    }
-                                } catch (e) {
-                                    map.flyTo(targetLayer.getBounds().getCenter(), fallbackZoomLevels[getLayerType(activeLayerKey)] || 8);
-                                }
+                                 try {
+                                     const bounds = targetLayer.getBounds();
+                                     if (bounds && bounds.isValid()) {
+                                         map.fitBounds(bounds, { paddingTopLeft: [document.getElementById('sidebar').offsetWidth + 20, 40], paddingBottomRight: [dataSidebar.offsetWidth + 20, 40] });
+                                     } else {
+                                         map.flyTo(targetLayer.getBounds().getCenter(), fallbackZoomLevels[getLayerType(activeLayerKey)] || 8);
+                                     }
+                                 } catch (e) {
+                                     map.flyTo(targetLayer.getBounds().getCenter(), fallbackZoomLevels[getLayerType(activeLayerKey)] || 8);
+                                 }
                              }
                         }
                         populateDataSidebar(targetFeature.properties);
@@ -1062,7 +1064,7 @@
                  if (binWidth === 0) {
                     bins[0]++;
                     continue;
-                }
+                 }
                 let binIndex = Math.floor((value - min) / binWidth);
                 if (binIndex >= numBins) binIndex = numBins - 1;
                 bins[binIndex]++;
@@ -1257,7 +1259,7 @@
             if (layerType === 'CT_') {
                  baseQuery = baseQuery.replace(/CT /i, '').trim();
                  if (!isNaN(baseQuery)) {
-                    baseQuery = properties.CMANAME || properties.CDNAME;
+                     baseQuery = properties.CMANAME || properties.CDNAME;
                  }
             }
             if (!baseQuery) return { intro: null, imageUrls: [] };
@@ -1302,6 +1304,9 @@
             }
             showMessage('Generating PDF...', 'blue');
 
+            const infographicContainer = document.getElementById('infographic-container');
+
+            // --- 1. PREPARE CONTENT ---
             rankingChart.options.plugins.datalabels.display = true;
             rankingChart.update('none');
             const rankingChartImg = rankingChart.toBase64Image();
@@ -1317,8 +1322,6 @@
             const definition = indicatorInfo.definition || 'Not available.';
             const source = indicatorInfo.source || 'Not available.';
             const regionName = getRegionName(properties, activeLayerKey);
-            
-            const infographicContainer = document.getElementById('infographic-container');
             
             let wikiHtml = '';
             if (wikiInfo.intro || (wikiInfo.imageUrls && wikiInfo.imageUrls.length > 0)) {
@@ -1339,7 +1342,6 @@
                 </div>
             `;
             
-            // --- CHANGE 1 START: Relocate indicator name and remove old subtitle ---
             infographicContainer.innerHTML = `
                 <h1>${regionName} - ${activeYear}</h1>
                 ${wikiHtml}
@@ -1358,9 +1360,7 @@
                 </div>
                 <h2>Data for Selected Area</h2>
             `;
-            // --- CHANGE 1 END ---
 
-            // --- CHANGE 2 START: Build a new table with definitions ---
             const uid = getRegionUID(properties, activeLayerKey);
             let rankHeader = 'Rank';
             if (allIndicatorRanks.has(currentIndicator)) {
@@ -1414,51 +1414,83 @@
                 if(percentInd && allIndicatorRanks.has(percentInd)) {
                      const rankMapForInd = allIndicatorRanks.get(percentInd);
                      if (rankMapForInd.has(uid)) {
-                         rankCell = `<td class="text-center font-bold">${rankMapForInd.get(uid).rank}</td>`;
+                          rankCell = `<td class="text-center font-bold">${rankMapForInd.get(uid).rank}</td>`;
                      } else {
-                        rankCell = '<td>N/A</td>';
+                          rankCell = '<td>N/A</td>';
                      }
                 }
                 tableHTML += `<tr><td>${tableDefinition}</td>${getValueCell(properties, countInd)}${getValueCell(properties, percentInd)}${rankCell}</tr>`; 
             } 
             
             tableHTML += '</tbody></table>';
-            const tempDiv = document.createElement('div');
-            tempDiv.innerHTML = tableHTML;
-            infographicContainer.appendChild(tempDiv.firstChild);
-            // --- CHANGE 2 END ---
+            infographicContainer.innerHTML += tableHTML;
+
+            const mapLegend = document.getElementById('legend');
+            if (mapLegend && !mapLegend.classList.contains('hidden')) {
+                const legendForPdfContainer = document.createElement('div');
+                legendForPdfContainer.style.marginTop = '20px';
+                legendForPdfContainer.innerHTML = '<h2>Map Legend</h2>';
+                const clonedLegend = mapLegend.cloneNode(true);
+                clonedLegend.style.position = 'relative';
+                clonedLegend.style.bottom = 'auto';
+                clonedLegend.style.right = 'auto';
+                clonedLegend.style.margin = '10px auto';
+                clonedLegend.classList.remove('hidden');
+                legendForPdfContainer.appendChild(clonedLegend);
+                infographicContainer.appendChild(legendForPdfContainer);
+            }
 
             const footer = document.createElement('div');
             footer.className = 'infographic-footer';
             footer.innerHTML = `<p><strong>Source:</strong> ${source}</p>${brandingHtml}`;
             infographicContainer.appendChild(footer);
             
-            try {
-                // --- CHANGE 3 START: Reduce html2canvas scale for smaller PDF resolution ---
-                const canvas = await html2canvas(infographicContainer, { scale: 1, useCORS: true });
-                // --- CHANGE 3 END ---
+            // --- 2. PREPARE CONTAINER FOR CAPTURE ---
+            const originalStyles = {
+                left: infographicContainer.style.left,
+                top: infographicContainer.style.top,
+                zIndex: infographicContainer.style.zIndex,
+                opacity: infographicContainer.style.opacity
+            };
+            infographicContainer.style.left = '0px';
+            infographicContainer.style.top = '0px';
+            infographicContainer.style.zIndex = '-1';
+            infographicContainer.style.opacity = '0';
 
-                const imgData = canvas.toDataURL('image/png');
-                const canvasWidth = canvas.width;
-                const canvasHeight = canvas.height;
-                
-                const { jsPDF } = window.jspdf;
-                const doc = new jsPDF({
-                    orientation: canvasWidth > canvasHeight ? 'l' : 'p',
-                    unit: 'px',
-                    format: [canvasWidth, canvasHeight]
-                });
 
-                doc.addImage(imgData, 'PNG', 0, 0, canvasWidth, canvasHeight);
-                doc.save(`${regionName.replace(/\s/g, '_')}_infographic.pdf`);
+            // --- 3. CAPTURE AND DOWNLOAD ---
+            setTimeout(async () => {
+                try {
+                    const canvas = await html2canvas(infographicContainer, {
+                        scale: 1.5,
+                        useCORS: true,
+                        logging: true // Enable logging for debugging
+                    });
 
-                showMessage('PDF download started.', 'green');
-            } catch (error) {
-                console.error("Error generating PDF:", error);
-                showMessage('Could not generate PDF.', 'red');
-            } finally {
-                infographicContainer.innerHTML = '';
-            }
+                    const imgData = canvas.toDataURL('image/png');
+                    const { jsPDF } = window.jspdf;
+                    const doc = new jsPDF({
+                        orientation: 'p',
+                        unit: 'px',
+                        format: [canvas.width, canvas.height]
+                    });
+
+                    doc.addImage(imgData, 'PNG', 0, 0, canvas.width, canvas.height);
+                    doc.save(`${regionName.replace(/\s/g, '_')}_infographic.pdf`);
+                    showMessage('PDF download started.', 'green');
+
+                } catch (error) {
+                    console.error("Error generating PDF:", error);
+                    showMessage('Could not generate PDF.', 'red');
+                } finally {
+                    // --- 4. CLEANUP ---
+                    infographicContainer.innerHTML = '';
+                    infographicContainer.style.left = originalStyles.left;
+                    infographicContainer.style.top = originalStyles.top;
+                    infographicContainer.style.zIndex = originalStyles.zIndex;
+                    infographicContainer.style.opacity = originalStyles.opacity;
+                }
+            }, 100); // 100ms delay to allow rendering
         }
 
         function populateDataSidebar(properties) {
@@ -1526,7 +1558,7 @@
                              const { rank } = rankMapForInd.get(uid);
                              rankCell = `<td class="text-center font-bold">${rank}</td>`;
                          } else {
-                            rankCell = '<td>N/A</td>';
+                             rankCell = '<td>N/A</td>';
                          }
                      } else {
                          rankCell = '<td>N/A</td>';
