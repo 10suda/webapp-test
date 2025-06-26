@@ -708,8 +708,29 @@
 
             let content = `<div class="flex justify-between items-center mb-4"><h3 class="text-xl font-semibold">${getRegionName(properties, activeLayerKey)} - ${activeYear}</h3><button id="close-data-sidebar" class="text-gray-500 hover:text-gray-800 text-2xl leading-none">&times;</button></div><div><button id="open-download-modal-btn" class="download-btn">Download CSV</button></div><div id="data-sidebar-content"><div id="ranking-chart-container" style="height: 400px; margin-bottom: 1rem;"><canvas id="rankingChart"></canvas></div><table id="indicator-table"><thead><tr><th>Indicator</th><th>Count</th><th>% or $</th><th>${rankHeader}</th></tr></thead><tbody>`; 
             
+            if (properties.hasOwnProperty('total_pop')) {
+                const indicatorKey = 'total_pop';
+                const formattedName = "Total Population";
+                let rowClass = (currentIndicator === indicatorKey) ? 'sidebar-highlight' : '';
+                let dataAttribute = `data-indicator="${indicatorKey}"`;
+                
+                const countValueCell = getValueCell(properties, indicatorKey);
+                const percentValueCell = '<td></td>';
+
+                let rankCell = '<td>N/A</td>';
+                if (allIndicatorRanks.has(indicatorKey)) {
+                    const rankMap = allIndicatorRanks.get(indicatorKey);
+                    if (rankMap.has(uid)) {
+                        const { rank } = rankMap.get(uid);
+                        rankCell = `<td class="text-right font-bold">${rank}</td>`;
+                    }
+                }
+                content += `<tr class="${rowClass}" ${dataAttribute}><td title="${formattedName}">${formattedName}</td>${countValueCell}${percentValueCell}${rankCell}</tr>`;
+            }
+            
             const indicatorPairs = {}; 
-            allIndicators.forEach(indicator => { 
+            const otherIndicators = allIndicators.filter(ind => ind.toLowerCase() !== 'total_pop');
+            otherIndicators.forEach(indicator => { 
                 const baseName = indicator.replace(/_count$/i, ''); 
                 if (!indicatorPairs[baseName]) indicatorPairs[baseName] = {}; 
                 if (indicator.toLowerCase().endsWith('count')) {
