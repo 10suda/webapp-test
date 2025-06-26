@@ -1,0 +1,128 @@
+[
+  {
+    "name": "age_8_11",
+    "label": "School-aged children 8-11",
+    "definition": "8-11 year-olds as a percentage of the total population",
+    "source": "Statistics Canada: 2011 Census Cat. no. 98-311-XCB2011023, 98-311-XCB2011019"
+  },
+  {
+    "name": "age_12_19",
+    "label": "School-aged children 12-19",
+    "definition": "12-19 year-olds as a percentage of the total population",
+    "source": "Statistics Canada: 2011 Census Cat. no. 98-311-XCB2011023, 98-311-XCB2011019"
+  },
+  {
+    "name": "households_in_subsidised_housing",
+    "label": "Households in subsidised housing",
+    "definition": "Households living in subsidized housing as a percentage of all households",
+    "source": "Statistics Canada: 2011 National Household Survey Cat. no. 99-004-XWE"
+  },
+  {
+    "name": "recent_immigrants",
+    "label": "Recent immigrants",
+    "definition": "Percentage of the population that arrived in Canada within the past 5 years",
+    "source": "Statistics Canada: 2011 National Household Survey Cat. no. 99-004-XWE"
+  },
+  {
+    "name": "no_knowledge_of_official_languages",
+    "label": "Population with no knowledge of English or French",
+    "definition": "Population with no knowledge of either French or English as a percentage of the total population",
+    "source": "Statistics Canada: 2011 Census Cat. no. 98-311-XCB201106, 98-314-XCB2011010"
+  },
+  {
+    "name": "low_income_population",
+    "label": "Low-income population",
+    "definition": "Population living below the after-tax Low-income measure (LIM-AT) as a percentage of the total population",
+    "source": "Statistics Canada: 2011 National Household Survey Cat. no. 99-004-XWE"
+  },
+  {
+    "name": "aboriginal_population",
+    "label": "Aboriginal population",
+    "definition": "Percentage of the population that self-identifies as Aboriginal",
+    "source": "Statistics Canada: 2011 National Household Survey Cat. no. 99-004-XWE"
+  },
+  {
+    "name": "educational_disadvantage_aged_20_24",
+    "label": "Educational disadvantage (youth)",
+    "definition": "Percentage of the population aged 20-24 that does not have a high school diploma or any other certificate or diploma",
+    "source": "Statistics Canada: 2011 National Household Survey Custom Tabulation"
+  },
+  {
+    "name": "educational_assets_aged_20_34",
+    "label": "Educational Assets (youth)",
+    "definition": "Percentage of the population aged 20-34 that has completed a postsecondary certificate, diploma or degree",
+    "source": "Statistics Canada: 2011 National Household Survey Custom Tabulation"
+  },
+  {
+    "name": "educational_assets_aged_35_64",
+    "label": "Educational Assets (adults)",
+    "definition": "Percentage of the population aged 35-64 year that has completed a postsecondary certificate, diploma or degree",
+    "source": "Statistics Canada: 2011 National Household Survey Custom Tabulation"
+  },
+  {
+    "name": "youth_unemployment_aged_20_34",
+    "label": "Youth Unemployment",
+    "definition": "Percentage of the labour force aged 20-34 that is unemployed",
+    "source": "Statistics Canada: 2011 National Household Survey Custom Tabulation"
+  },
+  {
+    "name": "adult_unemployment_aged_35_64",
+    "label": "Adult Unemployment",
+    "definition": "Percentage of the labour force aged 35-64 that is unemployed",
+    "source": "Statistics Canada: 2011 National Household Survey Custom Tabulation"
+  },
+  {
+    "name": "aboriginal_youth_aged_15_24",
+    "label": "Aboriginal youth",
+    "definition": "Percentage of the population aged 15-24 that self-identifies as Aboriginal",
+    "source": "Statistics Canada: 2011 National Household Survey Target Group Profile; 2011 Census Cat. no. 98-311-XCB2011023, 98-311-XCB2011019"
+  },
+  {
+    "name": "immigrant_youth_aged_15_24",
+    "label": "Immigrant youth",
+    "definition": "Percentage of the population aged 15-24 that is foreign born",
+    "source": "Statistics Canada: 2011 National Household Survey Target Group Profile; 2011 Census Cat. no. 98-311-XCB2011023, 98-311-XCB2011019"
+  },
+  {
+    "name": "low_wage_employment_25plus",
+    "label": "Low-wage employment",
+    "definition": "Percentage of the employed labour force aged 25+ working in retail trade and accommodation and food services",
+    "source": "Statistics Canada: 2011 National Household Survey Custom Tabulation"
+  },
+  {
+    "name": "visible_minority",
+    "label": "Visible minority population",
+    "definition": "Percentage of the population that is a visible minority",
+    "source": "Statistics Canada: 2011 National Household Survey Cat. no. 99-004-XWE"
+  },
+  {
+    "name": "modest_income",
+    "label": "Modest income population",
+    "definition": "Percentage of the population with income greater than the after-tax Low-income measure LIM-AT, but below the 30th income percentile",
+    "source": "Statistics Canada: 2011 National Household Survey Cat. no. 99-004-XWE"
+  },
+  {
+    "name": "lone_parent",
+    "label": "Lone Parent Households",
+    "definition": "Lone parent families as a percentage of all families",
+    "source": "Statistics Canada: 2011 National Household Survey Cat. no. 99-004-XWE"
+  },
+  {
+    "name": "avg_after-tax_income_25plus",
+    "label": "Average after-tax income, population aged 25+",
+    "definition": "Average after-tax income for the population aged 25+",
+    "source": "Statistics Canada: 2011 National Household Survey Cat. no. 99-014-x2011040"
+  },
+  {
+    "name": "low_income_15-24",
+    "label": "Youth Low Income (15-24)",
+    "definition": "Percentage of the population aged 15-24 with income below the after-tax Low-income measure (LIM-AT)",
+    "source": "Statistics Canada: 2011 National Household Survey Custom Tabulation"
+  },
+  {
+    "name": "take_up_rate",
+    "label": "Canada Learning Bond Take-Up 2015",
+    "definition": "The CLB take-up rate is a ratio between the number of CLB beneficiaries and eligible children. It is the number of children who have ever received a CLB, expressed as a percentage of the total number of children eligible for the bond, as of a given year",
+    "source": "Employment and Social Development Canada, 2015"
+  }
+]

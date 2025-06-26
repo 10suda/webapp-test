@@ -1,0 +1,152 @@
+[
+  {
+    "name": "age_8_11",
+    "label": "Children aged 8 to 11",
+    "definition": "Children aged 8-11 as a % of the total population",
+    "source": "Statistics Canada: 2016 Census Cat. no. 98-400-X2016004, 98-400-X2016005"
+  },
+  {
+    "name": "age_12_19",
+    "label": "Children aged 12 to 19",
+    "definition": "Children aged 12-19 as a % of the total population",
+    "source": "Statistics Canada: 2016 Census Cat. no. 98-400-X2016004, 98-400-X2016005"
+  },
+  {
+    "name": "lone_parent",
+    "label": "Lone-parent families",
+    "definition": "Lone parent families as a % of all families",
+    "source": "Census 2016 - Profile"
+  },
+  {
+    "name": "no_knowledge_of_official_languages",
+    "label": "No knowledge of official languages",
+    "definition": "Population with no knowledge of either French or English as a % of the total population",
+    "source": "Statistics Canada: 2016 Census Cat. no. 98-401-X2016021, 98-401-X2016053"
+  },
+  {
+    "name": "low_income_population",
+    "label": "Low Income",
+    "definition": "Population living below the after-tax Low-income measure (LIM-AT) as a % of the total population",
+    "source": "Statistics Canada: 2016 Census Cat. no. 98-401-X2016021, 98-401-X2016053"
+  },
+  {
+    "name": "modest_income",
+    "label": "Modest income",
+    "definition": "% of the population with income greater than the after-tax Low-income measure LIM-AT, but below the 30th income percentile",
+    "source": "Statistics Canada: 2016 Census Cat. no. 98-401-X2016021, 98-401-X2016053"
+  },
+  {
+    "name": "avg_after_tax_income_25_over",
+    "label": "Average after-tax income, 25+",
+    "definition": "Average after-tax income for the population aged 25+",
+    "source": "Statistics Canada: 2016 Census Cat. no. 98-401-X2016021, 98-401-X2016055"
+  },
+  {
+    "name": "low_income_youth_aged_15_19",
+    "label": "Low-income youths (15-19)",
+    "definition": "Population aged 20-24 with low incomes (LIM AT)",
+    "source": "Statistics Canada: 2016 Census Cat. no. 98-401-X2016021, 98-401-X2016054"
+  },
+  {
+    "name": "low_income_youth_aged_20_24",
+    "label": "Low Income youths (20-24)",
+    "definition": "Population aged 20-24 with low incomes (LIM AT)",
+    "source": "Statistics Canada: 2016 Census Cat. no. 98-401-X2016021, 98-401-X2016057"
+  },
+  {
+    "name": "households_in_subsidised_housing",
+    "label": "Subsidised housing",
+    "definition": "Households living in subsidized housing as a % of all households",
+    "source": "Statistics Canada: 2016 Census Cat. no. 98-401-X2016021, 98-401-X2016058"
+  },
+  {
+    "name": "affordable_housing",
+    "label": "Affordable housing",
+    "definition": "% of households spending 30% or more of income on housing",
+    "source": "Statistics Canada: 2016 Census Cat. no. 98-401-X2016021, 98-401-X2016059"
+  },
+  {
+    "name": "recent_immigrants",
+    "label": "Recent immigrants",
+    "definition": "% of the population that arrived in Canada within the past 5 years",
+    "source": "Statistics Canada: 2016 Census Cat. no. 98-401-X2016021, 98-401-X2016060"
+  },
+  {
+    "name": "indigenous_population",
+    "label": "Indigenous population",
+    "definition": "% of the population that self-identifies as Aboriginal",
+    "source": "Statistics Canada: 2016 Census Cat. no. 98-401-X2016021, 98-401-X2016061"
+  },
+  {
+    "name": "indigenous_youth_aged_10_14",
+    "label": "Indigenous youths (10-14)",
+    "definition": "% of the population aged 10-14 that self-identifies as Aboriginal",
+    "source": "Statistics Canada: 2016 Census Cat. no. 98-401-X2016021, 98-401-X2016062"
+  },
+  {
+    "name": "indigenous_youth_aged_15_24",
+    "label": "Indigenous youths (15-24)",
+    "definition": "% of the population aged 15-24 that self-identifies as Aboriginal",
+    "source": "Statistics Canada: 2016 Census Cat. no. 98-401-X2016021, 98-401-X2016063"
+  },
+  {
+    "name": "immigrant_youth_aged_15_24",
+    "label": "Immigrant youths",
+    "definition": "% of the population aged 15-24 that is foreign born",
+    "source": "Statistics Canada: 2016 Census Cat. no. 98-401-X2016021, 98-401-X2016064"
+  },
+  {
+    "name": "visible_minority",
+    "label": "Visible minority",
+    "definition": "% of the population that is a visible minority",
+    "source": "Statistics Canada: 2016 Census Cat. no. 98-401-X2016021, 98-401-X2016065"
+  },
+  {
+    "name": "educational_disadvantage_youth_20_24",
+    "label": "Educational disadvantage youths (20-24)",
+    "definition": "% of the population aged 20-24 that does not have a high school diploma or any other certificate or diploma",
+    "source": "Statistics Canada: 2016 Census Cat. no. 98-401-X2016021, 98-401-X2016066"
+  },
+  {
+    "name": "highschool_youth_25_34",
+    "label": "High-school educated population youths (25-34)",
+    "definition": "% of the population aged 25-34 with only a High school diploma or equivalent",
+    "source": "Statistics Canada: 2016 Census Cat. no. 98-401-X2016021, 98-401-X2016067"
+  },
+  {
+    "name": "highschool_adult_35-64",
+    "label": "High-school educated population adults (35-64)",
+    "definition": "% of the population aged 35-64 with only a High school diploma or equivalent",
+    "source": "Statistics Canada: 2016 Census Cat. no. 98-401-X2016021, 98-401-X2016068"
+  },
+  {
+    "name": "educational_assets_youth_20_34",
+    "label": "Educational assets youths (20-34)",
+    "definition": "% of the population aged 20-34 that has completed a postsecondary certificate, diploma or degree",
+    "source": "Statistics Canada: 2016 Census Cat. no. 98-401-X2016021, 98-401-X2016069"
+  },
+  {
+    "name": "educational_assets_adults_35_64",
+    "label": "Educational asets adults (35-64)",
+    "definition": "% of the population aged 35-64 year that has completed a postsecondary certificate, diploma or degree",
+    "source": "Statistics Canada: 2016 Census Cat. no. 98-401-X2016021, 98-401-X2016070"
+  },
+  {
+    "name": "youth_unemployment_20_34",
+    "label": "Youth unemployment",
+    "definition": "% of the labour force aged 20-34 that is unemployed",
+    "source": "Statistics Canada: 2016 Census Cat. no. 98-401-X2016021, 98-401-X2016071"
+  },
+  {
+    "name": "adult_unemployment_35_64",
+    "label": "Adult unemployment",
+    "definition": "% of the labour force aged 35-64 that is unemployed",
+    "source": "Statistics Canada: 2016 Census Cat. no. 98-401-X2016021, 98-401-X2016072"
+  },
+  {
+    "name": "low_wage_employment_25",
+    "label": "Low-wage employment",
+    "definition": "% of the population aged 25+ working in retail trade and accommodation and food services",
+    "source": "Statistics Canada: 2016 Census Cat. no. 98-401-X2016021, 98-401-X2016072"
+  }
+]
