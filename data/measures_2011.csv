@@ -1,0 +1,22 @@
+name,label,definition,source
+age_8_11,School-aged children 8-11,8-11 year-olds as a percentage of the total population,"Statistics Canada: 2011 Census Cat. no. 98-311-XCB2011023, 98-311-XCB2011019"
+age_12_19,School-aged children 12-19,12-19 year-olds as a percentage of the total population,"Statistics Canada: 2011 Census Cat. no. 98-311-XCB2011023, 98-311-XCB2011019"
+households_in_subsidised_housing,Households in subsidised housing,Households living in subsidized housing as a percentage of all households,Statistics Canada: 2011 National Household Survey Cat. no. 99-004-XWE
+recent_immigrants,Recent immigrants,Percentage of the population that arrived in Canada within the past 5 years,Statistics Canada: 2011 National Household Survey Cat. no. 99-004-XWE
+no_knowledge_of_official_languages,Population with no knowledge of English or French,Population with no knowledge of either French or English as a percentage of the total population,"Statistics Canada: 2011 Census Cat. no. 98-311-XCB201106, 98-314-XCB2011010"
+low_income_population,Low-income population,Population living below the after-tax Low-income measure (LIM-AT) as a percentage of the total population,Statistics Canada: 2011 National Household Survey Cat. no. 99-004-XWE
+aboriginal_population,Aboriginal population,Percentage of the population that self-identifies as Aboriginal,Statistics Canada: 2011 National Household Survey Cat. no. 99-004-XWE
+educational_disadvantage_aged_20_24,Educational disadvantage (youth),Percentage of the population aged 20-24 that does not have a high school diploma or any other certificate or diploma,Statistics Canada: 2011 National Household Survey Custom Tabulation
+educational_assets_aged_20_34,Educational Assets (youth),"Percentage of the population aged 20-34 that has completed a postsecondary certificate, diploma or degree",Statistics Canada: 2011 National Household Survey Custom Tabulation
+educational_assets_aged_35_64,Educational Assets (adults),"Percentage of the population aged 35-64 year that has completed a postsecondary certificate, diploma or degree",Statistics Canada: 2011 National Household Survey Custom Tabulation
+youth_unemployment_aged_20_34,Youth Unemployment,Percentage of the labour force aged 20-34 that is unemployed,Statistics Canada: 2011 National Household Survey Custom Tabulation
+adult_unemployment_aged_35_64,Adult Unemployment,Percentage of the labour force aged 35-64 that is unemployed,Statistics Canada: 2011 National Household Survey Custom Tabulation
+aboriginal_youth_aged_15_24,Aboriginal youth,Percentage of the population aged 15-24 that self-identifies as Aboriginal,"Statistics Canada: 2011 National Household Survey Target Group Profile; 2011 Census Cat. no. 98-311-XCB2011023, 98-311-XCB2011019"
+immigrant_youth_aged_15_24,Immigrant youth,Percentage of the population aged 15-24 that is foreign born,"Statistics Canada: 2011 National Household Survey Target Group Profile; 2011 Census Cat. no. 98-311-XCB2011023, 98-311-XCB2011019"
+low_wage_employment_25plus,Low-wage employment,Percentage of the employed labour force aged 25+ working in retail trade and accommodation and food services,Statistics Canada: 2011 National Household Survey Custom Tabulation
+visible_minority,Visible minority population,Percentage of the population that is a visible minority,Statistics Canada: 2011 National Household Survey Cat. no. 99-004-XWE
+modest_income,Modest income population,"Percentage of the population with income greater than the after-tax Low-income measure LIM-AT, but below the 30th income percentile",Statistics Canada: 2011 National Household Survey Cat. no. 99-004-XWE
+lone_parent,Lone Parent Households,Lone parent families as a percentage of all families,Statistics Canada: 2011 National Household Survey Cat. no. 99-004-XWE
+avg_after-tax_income_25plus,"Average after-tax income, population aged 25+",Average after-tax income for the population aged 25+,Statistics Canada: 2011 National Household Survey Cat. no. 99-014-x2011040
+low_income_15-24,Youth Low Income (15-24),Percentage of the population aged 15-24 with income below the after-tax Low-income measure (LIM-AT),Statistics Canada: 2011 National Household Survey Custom Tabulation
+take_up_rate,Canada Learning Bond Take-Up 2015,"The CLB take-up rate is a ratio between the number of CLB beneficiaries and eligible children. It is the number of children who have ever received a CLB, expressed as a percentage of the total number of children eligible for the bond, as of a given year","Employment and Social Development Canada, 2015"
