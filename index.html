@@ -38,7 +38,7 @@
             --cdp-light-teal: #e0f2f1;
             --cdp-dark-teal: #007f7f;
         }
-
+		
         body {
             font-family: 'Lato', sans-serif;
             display: flex;
@@ -499,9 +499,9 @@
         }
         /* Styles for PDF Legend */
        #infographic-container .infographic-legend {
-          margin-top: 20px;
-          padding-top: 15px;
-          border-top: 1px solid #eee;
+         margin-top: 20px;
+         padding-top: 15px;
+         border-top: 1px solid #eee;
        }
        #infographic-container .infographic-legend h3 {
            font-size: 16px;
@@ -510,14 +510,14 @@
            text-align: center;
        }
        #infographic-container .infographic-legend .legend-content {
-          width: 80%;
-          margin: 0 auto;
+         width: 80%;
+         margin: 0 auto;
        }
        #infographic-container .infographic-legend .color-bar {
-          height: 20px;
-          width: 100%;
-          border-radius: 4px;
-          border: 1px solid #ccc;
+         height: 20px;
+         width: 100%;
+         border-radius: 4px;
+         border: 1px solid #ccc;
        }
        #infographic-container .infographic-legend .labels {
            display: flex;
@@ -1404,7 +1404,7 @@
             if (layerType === 'CT_') {
                  baseQuery = baseQuery.replace(/CT /i, '').trim();
                  if (!isNaN(baseQuery)) {
-                     baseQuery = properties.CMANAME || properties.CDNAME;
+                      baseQuery = properties.CMANAME || properties.CDNAME;
                  }
             }
             if (!baseQuery) return { intro: null, imageUrls: [] };
@@ -1530,10 +1530,8 @@
                         rankCell = `<td class="text-center font-bold">${rankMap.get(uid).rank}</td>`;
                     }
                 }
-                const localCorr = indicatorCorrelations.get(`${currentIndicator}|${indicatorKey}`);
-                const globalCorr = globalCorrelations.get(`${currentIndicator}|${indicatorKey}`);
-                const localCorrCell = `<td>${!isNaN(localCorr) ? localCorr.toFixed(2) : 'N/A'}</td>`;
-                const globalCorrCell = `<td>${!isNaN(globalCorr) ? globalCorr.toFixed(2) : 'N/A'}</td>`;
+                const localCorrCell = getLocalCorrelationCell(indicatorKey);
+                const globalCorrCell = getGlobalCorrelationCell(indicatorKey);
                 tableHTML += `<tr><td>${tableDefinition}</td>${countValueCell}${percentValueCell}${rankCell}${localCorrCell}${globalCorrCell}</tr>`;
             }
             
@@ -1568,10 +1566,8 @@
                      }
                 }
 
-                const localCorr = indicatorCorrelations.get(`${currentIndicator}|${percentInd}`);
-                const globalCorr = globalCorrelations.get(`${currentIndicator}|${percentInd}`);
-                const localCorrCell = `<td>${percentInd ? (!isNaN(localCorr) ? localCorr.toFixed(2) : 'N/A') : ''}</td>`;
-                const globalCorrCell = `<td>${percentInd ? (!isNaN(globalCorr) ? globalCorr.toFixed(2) : 'N/A') : ''}</td>`;
+                const localCorrCell = getLocalCorrelationCell(percentInd);
+                const globalCorrCell = getGlobalCorrelationCell(percentInd);
 
                 tableHTML += `<tr><td>${tableDefinition}</td>${getValueCell(properties, countInd)}${getValueCell(properties, percentInd)}${rankCell}${localCorrCell}${globalCorrCell}</tr>`; 
             } 
@@ -1718,10 +1714,8 @@
                         rankCell = `<td class="text-center font-bold">${rankMap.get(uid).rank}</td>`;
                     }
                 }
-                const localCorr = indicatorCorrelations.get(`${currentIndicator}|${indicatorKey}`);
-                const globalCorr = globalCorrelations.get(`${currentIndicator}|${indicatorKey}`);
-                const localCorrCell = `<td>${!isNaN(localCorr) ? localCorr.toFixed(2) : 'N/A'}</td>`;
-                const globalCorrCell = `<td>${!isNaN(globalCorr) ? globalCorr.toFixed(2) : 'N/A'}</td>`;
+                const localCorrCell = getLocalCorrelationCell(indicatorKey);
+                const globalCorrCell = getGlobalCorrelationCell(indicatorKey);
                 tableHTML += `<tr><td>${tableDefinition}</td>${countValueCell}${percentValueCell}${rankCell}${localCorrCell}${globalCorrCell}</tr>`;
             }
             
@@ -1755,10 +1749,8 @@
                          rankCell = '<td>N/A</td>';
                      }
                 }
-                const localCorr = indicatorCorrelations.get(`${currentIndicator}|${percentInd}`);
-                const globalCorr = globalCorrelations.get(`${currentIndicator}|${percentInd}`);
-                const localCorrCell = `<td>${percentInd ? (!isNaN(localCorr) ? localCorr.toFixed(2) : 'N/A') : ''}</td>`;
-                const globalCorrCell = `<td>${percentInd ? (!isNaN(globalCorr) ? globalCorr.toFixed(2) : 'N/A') : ''}</td>`;
+                const localCorrCell = getLocalCorrelationCell(percentInd);
+                const globalCorrCell = getGlobalCorrelationCell(percentInd);
                 tableHTML += `<tr><td>${tableDefinition}</td>${getValueCell(properties, countInd)}${getValueCell(properties, percentInd)}${rankCell}${localCorrCell}${globalCorrCell}</tr>`; 
             } 
             
@@ -1813,6 +1805,7 @@
 
         function populateDataSidebar(properties) {
             const uid = getRegionUID(properties, activeLayerKey);
+            const measureSet = allMeasuresInfo[activeYear] || {};
             
             let rankHeader = 'Rank';
             if (allIndicatorRanks.has(currentIndicator)) {
@@ -1830,6 +1823,8 @@
                 const formattedName = "Total Population";
                 let rowClass = (currentIndicator === indicatorKey) ? 'sidebar-highlight' : '';
                 let dataAttribute = `data-indicator="${indicatorKey}"`;
+                const defInfo = measureSet[indicatorKey] || {};
+                const definition = defInfo.definition || "Total number of persons living in the geography.";
                 
                 const countValueCell = getValueCell(properties, indicatorKey);
                 const percentValueCell = '<td></td>';
@@ -1844,7 +1839,7 @@
                         rankCell = `<td class="text-center font-bold">${rank}</td>`;
                     }
                 }
-                content += `<tr class="${rowClass}" ${dataAttribute}><td title="${formattedName}">${formattedName}</td>${countValueCell}${percentValueCell}${rankCell}${localCorrelationCell}${globalCorrelationCell}</tr>`;
+                content += `<tr class="${rowClass}" ${dataAttribute}><td title="${definition}">${formattedName}</td>${countValueCell}${percentValueCell}${rankCell}${localCorrelationCell}${globalCorrelationCell}</tr>`;
             }
             
             const indicatorPairs = {}; 
@@ -1866,7 +1861,10 @@
                 if (!countInd && !percentInd) continue;
 
                 const indicatorForDisplay = percentInd || countInd;
-                const formattedBaseName = formatIndicatorName(baseName).replace(/ \(.+\)/, ''); 
+                const formattedBaseName = formatIndicatorName(baseName).replace(/ \(.+\)/, '');
+                const defInfo = measureSet[indicatorForDisplay] || {};
+                const definition = defInfo.definition || 'Definition not available.';
+                
                 let rowClass = (currentIndicator === indicatorForDisplay) ? 'sidebar-highlight' : ''; 
                 let dataAttribute = percentInd ? `data-indicator="${percentInd}"` : ''; 
                 const localCorrelationCell = getLocalCorrelationCell(percentInd);
@@ -1887,7 +1885,7 @@
                      }
                 }
                 
-                content += `<tr class="${rowClass}" ${dataAttribute}><td title="${formattedBaseName}">${formattedBaseName}</td>${getValueCell(properties, countInd)}${getValueCell(properties, percentInd)}${rankCell}${localCorrelationCell}${globalCorrelationCell}</tr>`; 
+                content += `<tr class="${rowClass}" ${dataAttribute}><td title="${definition}">${formattedBaseName}</td>${getValueCell(properties, countInd)}${getValueCell(properties, percentInd)}${rankCell}${localCorrelationCell}${globalCorrelationCell}</tr>`; 
             } 
             
             content += '</tbody></table></div>'; 
@@ -1967,6 +1965,7 @@
         document.getElementById('download-modal-csv-btn').addEventListener('click', () => { const selectedYears = getSelectedOptions(dlYearSelect); const selectedLayers = getSelectedOptions(dlLayerSelect); const selectedIndicators = getSelectedOptions(dlIndicatorSelect); const selectedProvinces = Array.from(dlProvinceSelect.options).filter(opt => opt.selected).map(opt => ({uid: opt.value, name: opt.text})); if (selectedYears.length === 0 || selectedLayers.length === 0 || selectedProvinces.length === 0 || selectedIndicators.length === 0) { showMessage("Please make at least one selection in each field.", "orange"); return; } downloadCSV({ years: selectedYears, layerTypes: selectedLayers, provinces: selectedProvinces, indicators: selectedIndicators }); modalOverlay.classList.add('hidden'); });
         document.getElementById('close-modal-btn').addEventListener('click', () => modalOverlay.classList.add('hidden'));
         modalOverlay.addEventListener('click', (e) => { if (e.target === modalOverlay) modalOverlay.classList.add('hidden'); });
+        
         function updateInfoBox(e) { 
             const properties = e.target.feature.properties; 
             const containerPoint = e.containerPoint; 
