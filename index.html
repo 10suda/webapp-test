@@ -537,7 +537,8 @@
         let clickedFeature = null; 
         let clickedLayer = null;  
         let tappedFeatureLayer = null; 
-        let activeRanks = new Map();
+        let rankingChart = null;
+        let allIndicatorRanks = new Map();
         const idKeys = ['CDUID', 'PRUID', 'CSDUID', 'CTUID', 'CMAUID', 'CMAPUID'];
         const nameKeys = ['CDNAME', 'PRNAME', 'CSDNAME', 'CTNAME', 'CMANAME'];
         const layerOrder = ['PR_', 'CMA_', 'CD_', 'CSD_', 'CT_'];
@@ -624,33 +625,39 @@
         function getLayerType(filename) { if (!filename) return null; const name = filename.toUpperCase(); for(const prefix of layerOrder) { if(name.includes(prefix)) return prefix; } return null; }
         function updateYearControl() { yearControlContainer.innerHTML = '<label class="block text-sm font-medium text-gray-700 mb-2">2. Select Year</label><div class="flex flex-wrap"></div>'; const container = yearControlContainer.querySelector('div'); const years = Object.keys(loadedLayers).sort((a, b) => b - a); years.forEach(year => { const div = document.createElement('div'); div.className = 'radio-control'; div.innerHTML = `<input type="radio" name="year-select" id="radio-year-${year}" value="${year}" ${year === activeYear ? 'checked' : ''}><label for="radio-year-${year}">${year}</label>`; container.appendChild(div); div.querySelector('input').onchange = () => setActiveYear(year); }); }
         function updateLayerControl() { if (!activeYear || !loadedLayers[activeYear]) { layerControlContainer.innerHTML = ''; return; } layerControlContainer.innerHTML = '<label class="block text-sm font-medium text-gray-700 mb-2">3. Select Layer</label><div class="grid grid-cols-2 gap-2"></div>'; const container = layerControlContainer.querySelector('div'); const availableLayers = Object.keys(loadedLayers[activeYear]); const layoutOrder = ['PR_', '', 'CD_', 'CSD_', 'CMA_', 'CT_']; const layerFileMap = {}; availableLayers.forEach(filename => { const type = getLayerType(filename); if (type) layerFileMap[type] = filename; }); layoutOrder.forEach(prefix => { const div = document.createElement('div'); if (prefix === '') { container.appendChild(div); return; } div.className = 'radio-control'; const filename = layerFileMap[prefix]; if (filename) { const id = `radio-${filename.replace(/[^a-zA-Z0-9]/g, "")}`; div.innerHTML = `<input type="radio" name="layer-select" id="${id}" value="${filename}" ${filename === activeLayerKey ? 'checked' : ''}><label for="${id}">${layerButtonNameMap[prefix]}</label>`; div.querySelector('input').onchange = () => setActiveLayer(filename); } else { div.innerHTML = `<label class="disabled">${layerButtonNameMap[prefix] || ''}</label>`; } container.appendChild(div); }); }
-        function setActiveYear(year) { clickedFeature = null; highlightClickedFeature(null); const lastActiveLayerType = activeLayerKey ? getLayerType(activeLayerKey) : null; if (activeLayerKey && loadedLayers[activeYear] && loadedLayers[activeYear][activeLayerKey] && loadedLayers[activeYear][activeLayerKey].layer) { map.removeLayer(loadedLayers[activeYear][activeLayerKey].layer); } activeYear = year; updateYearControl(); updateLayerControl(); let nextLayerKey = null; if (lastActiveLayerType && loadedLayers[activeYear]) nextLayerKey = Object.keys(loadedLayers[activeYear]).find(key => getLayerType(key) === lastActiveLayerType); if (!nextLayerKey && loadedLayers[year]) { const sortedLayers = Object.keys(loadedLayers[year]).sort((a, b) => layerOrder.findIndex(p => a.toUpperCase().includes(p)) - layerOrder.findIndex(p => b.toUpperCase().includes(p))); nextLayerKey = sortedLayers[0]; } if (nextLayerKey) { setActiveLayer(nextLayerKey); } else { if (activeLayerKey) { if(loadedLayers[activeYear] && loadedLayers[activeYear][activeLayerKey] && loadedLayers[activeYear][activeLayerKey].layer) { map.removeLayer(loadedLayers[activeYear][activeLayerKey].layer); } activeLayerKey = null; } legend.classList.add('hidden'); } }
         
-        function calculateAndStoreRanks() {
-            activeRanks.clear();
-            if (!activeYear || !activeLayerKey || !currentIndicator || !loadedLayers[activeYear]?.[activeLayerKey]?.geojson) {
+        function calculateAllRanksForLayer() {
+            allIndicatorRanks.clear();
+            if (!activeYear || !activeLayerKey || !loadedLayers[activeYear]?.[activeLayerKey]?.geojson) {
                 return;
             }
 
             const features = loadedLayers[activeYear][activeLayerKey].geojson.features;
-            const validFeatures = features
-                .map(f => ({
-                    uid: getRegionUID(f.properties, activeLayerKey),
-                    value: parseFloat(f.properties[currentIndicator])
-                }))
-                .filter(item => item.value !== null && !isNaN(item.value) && isFinite(item.value));
-            
-            validFeatures.sort((a, b) => b.value - a.value); // Higher value = better rank
+            const selectableIndicators = allIndicators.filter(ind => !ind.toLowerCase().endsWith('_count') && ind.toLowerCase() !== 'total_pop');
 
-            const totalRanked = validFeatures.length;
-            if (totalRanked === 0) return;
+            selectableIndicators.forEach(indicator => {
+                const validFeatures = features
+                    .map(f => ({
+                        uid: getRegionUID(f.properties, activeLayerKey),
+                        value: parseFloat(f.properties[indicator])
+                    }))
+                    .filter(item => item.value !== null && !isNaN(item.value) && isFinite(item.value));
 
-            validFeatures.forEach((feature, index) => {
-                activeRanks.set(feature.uid, { rank: index + 1, total: totalRanked });
+                validFeatures.sort((a, b) => b.value - a.value);
+
+                const totalRanked = validFeatures.length;
+                if (totalRanked > 0) {
+                    const rankMapForIndicator = new Map();
+                    validFeatures.forEach((feature, index) => {
+                        rankMapForIndicator.set(feature.uid, { rank: index + 1, total: totalRanked });
+                    });
+                    allIndicatorRanks.set(indicator, rankMapForIndicator);
+                }
             });
         }
-
-        function setActiveLayer(filename) { if (!IS_MOBILE_VIEW) { map.setView([62, -96], 4); } dataSidebar.classList.remove('visible'); clickedFeature = null; highlightClickedFeature(null); updateLegendIndicator(); if (activeLayerKey && loadedLayers[activeYear] && loadedLayers[activeYear][activeLayerKey] && loadedLayers[activeYear][activeLayerKey].layer) { map.removeLayer(loadedLayers[activeYear][activeLayerKey].layer); } activeLayerKey = filename; updateLayerControl(); updateMapStyles(); calculateAndStoreRanks(); }
+        
+        function setActiveYear(year) { clickedFeature = null; highlightClickedFeature(null); const lastActiveLayerType = activeLayerKey ? getLayerType(activeLayerKey) : null; if (activeLayerKey && loadedLayers[activeYear] && loadedLayers[activeYear][activeLayerKey] && loadedLayers[activeYear][activeLayerKey].layer) { map.removeLayer(loadedLayers[activeYear][activeLayerKey].layer); } activeYear = year; updateYearControl(); updateLayerControl(); let nextLayerKey = null; if (lastActiveLayerType && loadedLayers[activeYear]) nextLayerKey = Object.keys(loadedLayers[activeYear]).find(key => getLayerType(key) === lastActiveLayerType); if (!nextLayerKey && loadedLayers[year]) { const sortedLayers = Object.keys(loadedLayers[year]).sort((a, b) => layerOrder.findIndex(p => a.toUpperCase().includes(p)) - layerOrder.findIndex(p => b.toUpperCase().includes(p))); nextLayerKey = sortedLayers[0]; } if (nextLayerKey) { setActiveLayer(nextLayerKey); } else { if (activeLayerKey) { if(loadedLayers[activeYear] && loadedLayers[activeYear][activeLayerKey] && loadedLayers[activeYear][activeLayerKey].layer) { map.removeLayer(loadedLayers[activeYear][activeLayerKey].layer); } activeLayerKey = null; } legend.classList.add('hidden'); } }
+        function setActiveLayer(filename) { if (!IS_MOBILE_VIEW) { map.setView([62, -96], 4); } dataSidebar.classList.remove('visible'); clickedFeature = null; highlightClickedFeature(null); updateLegendIndicator(); if (activeLayerKey && loadedLayers[activeYear] && loadedLayers[activeYear][activeLayerKey] && loadedLayers[activeYear][activeLayerKey].layer) { map.removeLayer(loadedLayers[activeYear][activeLayerKey].layer); } activeLayerKey = filename; updateLayerControl(); updateMapStyles(); calculateAllRanksForLayer(); }
         function updateMapStyles() { if (!activeYear || !activeLayerKey || !loadedLayers[activeYear] || !loadedLayers[activeYear][activeLayerKey] || !currentIndicator) return; if (loadedLayers[activeYear][activeLayerKey].layer) { map.removeLayer(loadedLayers[activeYear][activeLayerKey].layer); } const geojson = loadedLayers[activeYear][activeLayerKey].geojson; const values = geojson.features.map(f => parseFloat(f.properties[currentIndicator])).filter(v => !isNaN(v) && isFinite(v)); if (values.length === 0) { const newLayer = L.geoJSON(geojson, { style: styleFeature(null, null), onEachFeature: onEachFeature }).addTo(map); loadedLayers[activeYear][activeLayerKey].layer = newLayer; legend.classList.add('hidden'); showMessage(`Indicator "${formatIndicatorName(currentIndicator)}" not found in ${activeLayerKey} data.`, 'orange'); return; } const currentScale = chroma.scale('viridis').domain(getBreaks(values, 5)); indicatorScales[currentIndicator] = currentScale; const newLayer = L.geoJSON(geojson, { style: (f) => styleFeature(f, currentScale), onEachFeature: onEachFeature }).addTo(map); loadedLayers[activeYear][activeLayerKey].layer = newLayer; updateLegend(currentScale, currentIndicator); }
         function getBreaks(data, numBreaks) { const sortedData = [...new Set(data)].sort((a, b) => a - b); if (sortedData.length === 0) return [0, 1]; const min = sortedData[0]; const max = sortedData[sortedData.length - 1]; if (sortedData.length < numBreaks) return [min, max]; const breaks = []; for (let i = 0; i < numBreaks; i++) { breaks.push(min + (i / (numBreaks - 1)) * (max - min)); } return breaks; }
         function styleFeature(feature, scale) { let value = 'N/A'; if (feature) value = parseFloat(feature.properties[currentIndicator]); return { fillColor: (feature && currentIndicator && !isNaN(value) && scale) ? scale(value).hex() : '#dddddd', weight: 1, opacity: 1, color: 'white', dashArray: '3', fillOpacity: 0.75 }; }
@@ -661,75 +668,65 @@
         function highlightClickedFeature(layer) { if (clickedLayer) { if (activeYear && activeLayerKey && loadedLayers[activeYear][activeLayerKey] && loadedLayers[activeYear][activeLayerKey].layer) { loadedLayers[activeYear][activeLayerKey].layer.resetStyle(clickedLayer); } } if (layer) { layer.setStyle({ weight: 3, color: '#333', dashArray: '', fillOpacity: 0.9 }); if (!L.Browser.ie) { layer.bringToFront(); } } clickedLayer = layer; }
         function handleFeatureClick(e) { const target = e.target; clickedFeature = target.feature; highlightClickedFeature(target); populateDataSidebar(clickedFeature.properties); updateLegendIndicator(); dataSidebar.classList.add('visible'); if (!IS_MOBILE_VIEW) { setTimeout(() => { try { const bounds = target.getBounds(); if (!bounds || !bounds.isValid()) { throw new Error("Bounds are not valid for this feature."); } const paddingOptions = { paddingTopLeft: [document.getElementById('sidebar').offsetWidth + 20, 40], paddingBottomRight: [dataSidebar.offsetWidth + 20, 40] }; map.fitBounds(bounds, paddingOptions); } catch (err) { console.error("Could not zoom to feature. Using fallback.", err); const layerType = getLayerType(activeLayerKey); const fallbackZoom = fallbackZoomLevels[layerType] || 8; map.flyTo(e.latlng, fallbackZoom, {animate: true, duration: 1}); } }, 350); } if (homeButton) { homeButton.classList.add('rattle-animation'); setTimeout(() => { homeButton.classList.remove('rattle-animation'); }, 500); } }
         function getTopBottomFive(indicator) { if (!activeYear || !activeLayerKey || !loadedLayers[activeYear] || !loadedLayers[activeYear][activeLayerKey]) { return { top5: [], bottom5: [] }; } const features = loadedLayers[activeYear][activeLayerKey].geojson.features; const validFeatures = features .map(f => ({ name: getRegionName(f.properties, activeLayerKey), value: parseFloat(f.properties[indicator]), uid: getRegionUID(f.properties, activeLayerKey) })) .filter(item => item.value !== null && !isNaN(item.value) && isFinite(item.value)); validFeatures.sort((a, b) => b.value - a.value); const top5 = validFeatures.slice(0, 5); const bottom5 = validFeatures.slice(-5).reverse(); return { top5, bottom5 }; }
+        function createOrUpdateChart(top5, bottom5, selectedFeature = null) { const chartContainer = document.getElementById('ranking-chart-container'); if (!chartContainer) return; let datasets = []; let labels = []; const backgroundColors = []; const borderColors = []; let chartData = []; const top5UIDs = top5.map(i => i.uid); const bottom5UIDs = bottom5.map(i => i.uid); let combinedData = [...top5, ...bottom5]; if (selectedFeature) { const selectedUID = getRegionUID(selectedFeature.properties, activeLayerKey); if (!combinedData.some(d => d.uid === selectedUID)) { combinedData.push({ name: getRegionName(selectedFeature.properties, activeLayerKey), value: parseFloat(selectedFeature.properties[currentIndicator]), uid: selectedUID }); } } combinedData.sort((a,b) => b.value - a.value); combinedData.forEach(item => { labels.push(item.name); datasets.push(item.value); chartData.push(item); let bgColor = 'rgba(119, 119, 119, 0.6)'; let borderColor = 'rgba(119, 119, 119, 1)'; if(top5UIDs.includes(item.uid)) { bgColor = 'rgba(40, 167, 69, 0.6)'; borderColor = 'rgba(40, 167, 69, 1)'; } else if (bottom5UIDs.includes(item.uid)) { bgColor = 'rgba(220, 53, 69, 0.6)'; borderColor = 'rgba(220, 53, 69, 1)'; } if (selectedFeature) { const selectedUID = getRegionUID(selectedFeature.properties, activeLayerKey); if (item.uid === selectedUID) { bgColor = 'rgba(255, 193, 7, 0.8)'; borderColor = 'rgba(255, 193, 7, 1)'; } } backgroundColors.push(bgColor); borderColors.push(borderColor); }); if (rankingChart) { rankingChart.destroy(); } const ctx = document.getElementById('rankingChart').getContext('2d'); rankingChart = new Chart(ctx, { type: 'bar', data: { labels: labels, datasets: [{ label: formatIndicatorName(currentIndicator), data: datasets, backgroundColor: backgroundColors, borderColor: borderColors, borderWidth: 2 }] }, options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false, onClick: (event, elements) => { if (elements.length === 0) return; const elementIndex = elements[0].index; const clickedUID = chartData[elementIndex].uid; const activeGeoJsonLayer = loadedLayers[activeYear][activeLayerKey].layer; let targetLayer = null; activeGeoJsonLayer.eachLayer(layer => { if (getRegionUID(layer.feature.properties, activeLayerKey) === clickedUID) { targetLayer = layer; } }); if (targetLayer) { masterClickHandler({ target: targetLayer }); } }, plugins: { legend: { display: false }, title: { display: true, text: `Top and Bottom 5 for ${formatIndicatorName(currentIndicator)}` }, tooltip: { callbacks: { label: function(context) { let label = context.dataset.label || ''; if (label) { label = label.replace(/ \(.+\)/, ''); label += ': '; } if (context.parsed.x !== null) { label += formatValue(context.parsed.x, currentIndicator); } return label; } } } }, scales: { x: { ticks: { callback: function(value, index, values) { if(isPercentageIndicator(currentIndicator)) { return (value * 100).toFixed(0) + '%'; } if (isCurrencyIndicator(currentIndicator)) { return '$' + Math.round(value / 1000) + 'k'; } return Math.round(value).toLocaleString(); } } } } } }); }
         
-        function createRankingTable(top5, bottom5, selectedFeature = null) {
-            const container = document.getElementById('ranking-table-container');
-            if (!container) return;
+        function populateDataSidebar(properties) { 
+            const uid = getRegionUID(properties, activeLayerKey);
+            let content = `<div class="flex justify-between items-center mb-4"><h3 class="text-xl font-semibold">${getRegionName(properties, activeLayerKey)} - ${activeYear}</h3><button id="close-data-sidebar" class="text-gray-500 hover:text-gray-800 text-2xl leading-none">&times;</button></div><div><button id="open-download-modal-btn" class="download-btn">Download CSV</button></div><div id="data-sidebar-content"><div id="ranking-chart-container" style="height: 400px; margin-bottom: 1rem;"><canvas id="rankingChart"></canvas></div><table id="indicator-table"><thead><tr><th>Indicator</th><th>Count</th><th>% or $</th><th>Rank</th></tr></thead><tbody>`; 
             
-            const selectedUID = selectedFeature ? getRegionUID(selectedFeature.properties, activeLayerKey) : null;
-            const rankInfo = activeRanks.get(selectedUID);
-            const totalRanked = rankInfo ? rankInfo.total : activeRanks.size;
-
-            let combinedData = [...top5, ...bottom5];
-            const combinedUIDs = new Set(combinedData.map(d => d.uid));
-
-            if (selectedFeature && !combinedUIDs.has(selectedUID)) {
-                const value = parseFloat(selectedFeature.properties[currentIndicator]);
-                if (!isNaN(value)) {
-                    combinedData.push({
-                        name: getRegionName(selectedFeature.properties, activeLayerKey),
-                        value: value,
-                        uid: selectedUID
-                    });
+            if (properties.hasOwnProperty('total_pop')) { 
+                const formattedName = "Total Population"; 
+                content += `<tr><td title="${formattedName}">${formattedName}</td>${getValueCell(properties, 'total_pop')}<td class="text-right">100.0%</td><td></td></tr>`; 
+            } 
+            
+            const indicatorPairs = {}; 
+            const otherIndicators = allIndicators.filter(ind => ind.toLowerCase() !== 'total_pop'); 
+            otherIndicators.forEach(indicator => { 
+                const baseName = indicator.replace(/_count$/i, ''); 
+                if (!indicatorPairs[baseName]) indicatorPairs[baseName] = {}; 
+                if (indicator.toLowerCase().endsWith('count')) {
+                    indicatorPairs[baseName].count = indicator;
+                } else {
+                    indicatorPairs[baseName].percent = indicator;
                 }
-            }
+            }); 
             
-            let tableHTML = `<h4 class="text-md font-semibold mb-2 text-center">Rankings for ${formatIndicatorName(currentIndicator)}</h4>
-                            <table id="ranking-table"><thead><tr>
-                            <th>Rank (of ${totalRanked})</th>
-                            <th>Geography</th>
-                            <th>Value</th>
-                            </tr></thead><tbody>`;
-
-            if (combinedData.length === 0) {
-                tableHTML += `<tr><td colspan="3" class="text-center">No ranking data available.</td></tr>`;
-            } else {
-                combinedData.forEach(item => {
-                    const itemRankInfo = activeRanks.get(item.uid);
-                    if (!itemRankInfo) return;
-
-                    const isSelected = item.uid === selectedUID;
-                    const rowClass = isSelected ? 'sidebar-highlight' : '';
-                    tableHTML += `<tr class="${rowClass}" data-uid="${item.uid}" style="cursor:pointer;">
-                        <td class="text-right font-bold">${itemRankInfo.rank}</td>
-                        <td title="${item.name}">${item.name}</td>
-                        <td class="text-right">${formatValue(item.value, currentIndicator)}</td>
-                    </tr>`;
-                });
-            }
-
-            tableHTML += '</tbody></table>';
-            container.innerHTML = tableHTML;
-
-            container.querySelector('#ranking-table')?.addEventListener('click', (event) => {
-                const row = event.target.closest('tr');
-                if (!row || !row.dataset.uid) return;
+            for (const baseName of Object.keys(indicatorPairs).sort()) { 
+                const countInd = indicatorPairs[baseName].count; 
+                const percentInd = indicatorPairs[baseName].percent; 
+                const formattedBaseName = formatIndicatorName(baseName).replace(/ \(.+\)/, ''); 
+                let rowClass = (currentIndicator === percentInd) ? 'sidebar-highlight' : ''; 
+                let dataAttribute = percentInd ? `data-indicator="${percentInd}"` : ''; 
                 
-                const clickedUID = row.dataset.uid;
-                const activeGeoJsonLayer = loadedLayers[activeYear][activeLayerKey].layer;
-                let targetLayer = null;
-                activeGeoJsonLayer.eachLayer(layer => {
-                    if (getRegionUID(layer.feature.properties, activeLayerKey) === clickedUID) {
-                        targetLayer = layer;
+                let rankCell = '<td>N/A</td>';
+                if (percentInd && allIndicatorRanks.has(percentInd)) {
+                    const rankMap = allIndicatorRanks.get(percentInd);
+                    if (rankMap.has(uid)) {
+                        const { rank, total } = rankMap.get(uid);
+                        rankCell = `<td class="text-right font-bold">${rank} of ${total}</td>`;
                     }
-                });
-                if (targetLayer) { masterClickHandler({ target: targetLayer }); }
-            });
+                }
+                
+                content += `<tr class="${rowClass}" ${dataAttribute}><td title="${formattedBaseName}">${formattedBaseName}</td>${getValueCell(properties, countInd)}${getValueCell(properties, percentInd)}${rankCell}</tr>`; 
+            } 
+            
+            content += '</tbody></table></div>'; 
+            dataSidebar.innerHTML = content; 
+            const { top5, bottom5 } = getTopBottomFive(currentIndicator); 
+            createOrUpdateChart(top5, bottom5, clickedFeature); 
+            document.getElementById('close-data-sidebar').onclick = () => { clickedFeature = null; highlightClickedFeature(null); dataSidebar.classList.remove('visible'); updateLegendIndicator(); }; 
+            document.getElementById('open-download-modal-btn').onclick = () => openDownloadModal(properties); 
+            document.getElementById('indicator-table').querySelector('tbody').addEventListener('click', (event) => { 
+                const row = event.target.closest('tr'); 
+                if (row && row.dataset.indicator) { 
+                    const newIndicator = row.dataset.indicator; 
+                    changeIndicator(newIndicator, true); 
+                } 
+            }); 
         }
 
-        function populateDataSidebar(properties) { let content = `<div class="flex justify-between items-center mb-4"><h3 class="text-xl font-semibold">${getRegionName(properties, activeLayerKey)} - ${activeYear}</h3><button id="close-data-sidebar" class="text-gray-500 hover:text-gray-800 text-2xl leading-none">&times;</button></div><div><button id="open-download-modal-btn" class="download-btn">Download CSV</button></div><div id="data-sidebar-content"><div id="ranking-table-container" style="margin-bottom: 1rem;"></div><table id="indicator-table"><thead><tr><th>Indicator</th><th>Count</th><th>% or $</th></tr></thead><tbody>`; if (properties.hasOwnProperty('total_pop')) { const formattedName = "Total Population"; content += `<tr><td title="${formattedName}">${formattedName}</td>${getValueCell(properties, 'total_pop')}<td class="text-right">100.0%</td></tr>`; } const indicatorPairs = {}; const otherIndicators = allIndicators.filter(ind => ind.toLowerCase() !== 'total_pop'); otherIndicators.forEach(indicator => { const baseName = indicator.replace(/_count$/i, ''); if (!indicatorPairs[baseName]) indicatorPairs[baseName] = {}; if (indicator.toLowerCase().endsWith('count')) indicatorPairs[baseName].count = indicator; else indicatorPairs[baseName].percent = indicator; }); for (const baseName of Object.keys(indicatorPairs).sort()) { const countInd = indicatorPairs[baseName].count; const percentInd = indicatorPairs[baseName].percent; const formattedBaseName = formatIndicatorName(baseName).replace(/ \(.+\)/, ''); let rowClass = (currentIndicator === percentInd) ? 'sidebar-highlight' : ''; let dataAttribute = percentInd ? `data-indicator="${percentInd}"` : ''; content += `<tr class="${rowClass}" ${dataAttribute}><td title="${formattedBaseName}">${formattedBaseName}</td>${getValueCell(properties, countInd)}${getValueCell(properties, percentInd)}</tr>`; } content += '</tbody></table></div>'; dataSidebar.innerHTML = content; const { top5, bottom5 } = getTopBottomFive(currentIndicator); createRankingTable(top5, bottom5, clickedFeature); document.getElementById('close-data-sidebar').onclick = () => { clickedFeature = null; highlightClickedFeature(null); dataSidebar.classList.remove('visible'); updateLegendIndicator(); }; document.getElementById('open-download-modal-btn').onclick = () => openDownloadModal(properties); document.getElementById('indicator-table').querySelector('tbody').addEventListener('click', (event) => { const row = event.target.closest('tr'); if (row && row.dataset.indicator) { const newIndicator = row.dataset.indicator; changeIndicator(newIndicator, true); } }); }
         function getValueCell(properties, indicator) { if (!indicator) return '<td></td>'; const rawValue = properties[indicator]; const numValue = parseFloat(rawValue); if (rawValue == null || isNaN(numValue)) return `<td class="text-right">N/A</td>`; const displayValue = formatValue(numValue, indicator); if (indicator.toLowerCase().endsWith('_count') || indicator.toLowerCase() === 'total_pop') return `<td class="text-right">${displayValue}</td>`; const scale = indicatorScales[indicator]; const bgColor = scale ? scale(numValue).hex() : 'transparent'; const textColor = scale && chroma(bgColor).luminance() > 0.5 ? 'black' : 'white'; return `<td style="background-color:${bgColor}; color:${textColor};" class="text-right">${displayValue}</td>`; }
-        function changeIndicator(newIndicator, keepSelection = false) { if (!newIndicator || currentIndicator === newIndicator) { return; } currentIndicator = newIndicator; indicatorSelect.value = newIndicator; updateIndicatorInfo(currentIndicator); calculateAndStoreRanks(); updateMapStyles(); if (keepSelection && clickedFeature) { populateDataSidebar(clickedFeature.properties); updateLegendIndicator(); } else { dataSidebar.classList.remove('visible'); clickedFeature = null; highlightClickedFeature(null); updateLegendIndicator(); } }
+        function changeIndicator(newIndicator, keepSelection = false) { if (!newIndicator || currentIndicator === newIndicator) { return; } currentIndicator = newIndicator; indicatorSelect.value = newIndicator; updateIndicatorInfo(currentIndicator); updateMapStyles(); if (keepSelection && clickedFeature) { populateDataSidebar(clickedFeature.properties); updateLegendIndicator(); } else { dataSidebar.classList.remove('visible'); clickedFeature = null; highlightClickedFeature(null); updateLegendIndicator(); } }
         function downloadCSV(options) { const { years, layerTypes, provinces, indicators } = options; const filename = `${provinces.length === 1 ? provinces[0].name.toLowerCase().replace(/\s/g, '_') : 'custom'}_data.csv`; const headers = ['Year', 'UID', 'Map Layer', 'Geography Name', ...indicators.map(ind => `"${formatIndicatorName(ind)}"` )]; let csvRows = [headers.join(',')]; years.forEach(year => { layerTypes.forEach(layerType => { const layerKey = Object.keys(loadedLayers[year] || {}).find(key => getLayerType(key) === layerType); if (layerKey) { const layerData = loadedLayers[year][layerKey]; if (layerData && layerData.geojson && layerData.geojson.features) { const geojson = layerData.geojson; const featuresToInclude = geojson.features.filter(f => provinces.some(p => p.uid === f.properties.PRUID)); featuresToInclude.forEach(feature => { const row = [ year, getRegionUID(feature.properties, layerKey), layerNameMap[layerType], getRegionName(feature.properties, layerKey), ...indicators.map(ind => feature.properties[ind] ?? 'N/A') ]; csvRows.push(row.map(val => `"${String(val).replace(/"/g, '""')}"`).join(',')); }); } } }); }); if (csvRows.length <= 1) { showMessage('No data found for the selected criteria.', 'orange'); return; } const csvContent = csvRows.join('\n'); const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' }); const link = document.createElement("a"); const url = URL.createObjectURL(blob); link.setAttribute("href", url); link.setAttribute("download", filename); document.body.appendChild(link); link.click(); document.body.removeChild(link); }
         const modalOverlay = document.getElementById('download-modal-overlay');
         const dlYearSelect = document.getElementById('dl-year-select');
@@ -741,34 +738,7 @@
         document.getElementById('download-modal-csv-btn').addEventListener('click', () => { const selectedYears = getSelectedOptions(dlYearSelect); const selectedLayers = getSelectedOptions(dlLayerSelect); const selectedIndicators = getSelectedOptions(dlIndicatorSelect); const selectedProvinces = Array.from(dlProvinceSelect.options).filter(opt => opt.selected).map(opt => ({uid: opt.value, name: opt.text})); if (selectedYears.length === 0 || selectedLayers.length === 0 || selectedProvinces.length === 0 || selectedIndicators.length === 0) { showMessage("Please make at least one selection in each field.", "orange"); return; } downloadCSV({ years: selectedYears, layerTypes: selectedLayers, provinces: selectedProvinces, indicators: selectedIndicators }); modalOverlay.classList.add('hidden'); });
         document.getElementById('close-modal-btn').addEventListener('click', () => modalOverlay.classList.add('hidden'));
         modalOverlay.addEventListener('click', (e) => { if (e.target === modalOverlay) modalOverlay.classList.add('hidden'); });
-        function updateInfoBox(e) { 
-            const properties = e.target.feature.properties; 
-            const containerPoint = e.containerPoint; 
-            if (properties && currentIndicator) { 
-                const rawValue = properties[currentIndicator]; 
-                const numValue = parseFloat(rawValue); 
-                let colorBox = '<span>N/A</span>'; 
-                if (rawValue != null && !isNaN(numValue) && indicatorScales[currentIndicator]) { 
-                    const displayValue = formatValue(numValue, currentIndicator); 
-                    const bgColor = indicatorScales[currentIndicator](numValue).hex(); 
-                    const textColor = chroma(bgColor).luminance() > 0.5 ? 'black' : 'white'; 
-                    colorBox = `<span style="background-color: ${bgColor}; color: ${textColor}; padding: 2px 6px; border-radius: 3px; font-weight: bold;">${displayValue}</span>`; 
-                } 
-                const uid = getRegionUID(properties, activeLayerKey);
-                const rankInfo = activeRanks.get(uid);
-                let rankHTML = '';
-                if(rankInfo) {
-                    rankHTML = `<div class="mt-1"><strong>Rank:</strong> ${rankInfo.rank} of ${rankInfo.total}</div>`;
-                }
-
-                infoBox.innerHTML = `<h4>${getRegionName(properties, activeLayerKey)}</h4><div><strong>${formatIndicatorName(currentIndicator).replace(/ \(.+\)/,'')}:</strong> ${colorBox}</div>${rankHTML}`; 
-                infoBox.style.left = containerPoint.x + 'px'; 
-                infoBox.style.top = containerPoint.y + 'px'; 
-                infoBox.classList.add('visible'); 
-            } else { 
-                infoBox.classList.remove('visible'); 
-            } 
-        }
+        function updateInfoBox(e) { const properties = e.target.feature.properties; const containerPoint = e.containerPoint; if (properties && currentIndicator) { const rawValue = properties[currentIndicator]; const numValue = parseFloat(rawValue); let colorBox = '<span>N/A</span>'; if (rawValue != null && !isNaN(numValue) && indicatorScales[currentIndicator]) { const displayValue = formatValue(numValue, currentIndicator); const bgColor = indicatorScales[currentIndicator](numValue).hex(); const textColor = chroma(bgColor).luminance() > 0.5 ? 'black' : 'white'; colorBox = `<span style="background-color: ${bgColor}; color: ${textColor}; padding: 2px 6px; border-radius: 3px; font-weight: bold;">${displayValue}</span>`; } infoBox.innerHTML = `<h4>${getRegionName(properties, activeLayerKey)}</h4><div><strong>${formatIndicatorName(currentIndicator).replace(/ \(.+\)/,'')}:</strong> ${colorBox}</div>`; infoBox.style.left = containerPoint.x + 'px'; infoBox.style.top = containerPoint.y + 'px'; infoBox.classList.add('visible'); } else { infoBox.classList.remove('visible'); } }
         indicatorSelect.addEventListener('change', (e) => { changeIndicator(e.target.value, false); });
         
         loadInitialData();
