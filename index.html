@@ -1870,10 +1870,12 @@
             
             const absCorr = Math.abs(correlationValue);
             let bgColor = 'transparent';
+            let textColor = 'black'; // Default text color
+
             if (absCorr > 0.1) {
                  bgColor = chroma.scale(['#f8696b', '#fcfbcf', '#63be7b']).domain([-1, 0, 1])(correlationValue).hex();
+                 textColor = chroma(bgColor).luminance() < 0.4 ? 'white' : 'black';
             }
-            const textColor = chroma(bgColor).luminance() < 0.4 ? 'white' : 'black';
 
             return `<td style="background-color:${bgColor}; color:${textColor};" class="text-center font-bold">${correlationValue.toFixed(2)}</td>`;
         }
