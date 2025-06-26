@@ -615,6 +615,7 @@
         let histogramChart = null;
         let activeDrillDownPopup = null;
         let allIndicatorRanks = new Map();
+        let indicatorCorrelations = new Map();
         let activeRanks = new Map();
         const idKeys = ['CDUID', 'PRUID', 'CSDUID', 'CTUID', 'CMAUID', 'CMAPUID'];
         const nameKeys = ['CDNAME', 'PRNAME', 'CSDNAME', 'CTNAME', 'CMANAME'];
@@ -865,6 +866,63 @@
             });
         }
         
+        function calculateCorrelation(features, indicatorA, indicatorB) {
+            const valuesA = [];
+            const valuesB = [];
+
+            features.forEach(f => {
+                const valA = parseFloat(f.properties[indicatorA]);
+                const valB = parseFloat(f.properties[indicatorB]);
+                if (!isNaN(valA) && !isNaN(valB) && isFinite(valA) && isFinite(valB)) {
+                    valuesA.push(valA);
+                    valuesB.push(valB);
+                }
+            });
+
+            const n = valuesA.length;
+            if (n < 2) return NaN;
+
+            const meanA = valuesA.reduce((a, b) => a + b) / n;
+            const meanB = valuesB.reduce((a, b) => a + b) / n;
+
+            let cov = 0;
+            let stdDevA = 0;
+            let stdDevB = 0;
+
+            for (let i = 0; i < n; i++) {
+                cov += (valuesA[i] - meanA) * (valuesB[i] - meanB);
+                stdDevA += Math.pow(valuesA[i] - meanA, 2);
+                stdDevB += Math.pow(valuesB[i] - meanB, 2);
+            }
+
+            cov = cov / (n - 1);
+            stdDevA = Math.sqrt(stdDevA / (n - 1));
+            stdDevB = Math.sqrt(stdDevB / (n - 1));
+
+            if (stdDevA === 0 || stdDevB === 0) return NaN;
+
+            return cov / (stdDevA * stdDevB);
+        }
+
+        function calculateAllCorrelationsForLayer() {
+            indicatorCorrelations.clear();
+            if (!activeYear || !activeLayerKey || !loadedLayers[activeYear]?.[activeLayerKey]?.geojson) {
+                return;
+            }
+            const features = loadedLayers[activeYear][activeLayerKey].geojson.features;
+            const selectableIndicators = allIndicators.filter(ind => !ind.toLowerCase().endsWith('_count') || ind.toLowerCase() === 'total_pop');
+
+            for (let i = 0; i < selectableIndicators.length; i++) {
+                for (let j = i; j < selectableIndicators.length; j++) {
+                    const indA = selectableIndicators[i];
+                    const indB = selectableIndicators[j];
+                    const correlation = calculateCorrelation(features, indA, indB);
+                    indicatorCorrelations.set(`${indA}|${indB}`, correlation);
+                    indicatorCorrelations.set(`${indB}|${indA}`, correlation);
+                }
+            }
+        }
+
         function calculateCurrentIndicatorRanks() {
             activeRanks.clear();
             if (!activeYear || !activeLayerKey || !currentIndicator || !loadedLayers[activeYear]?.[activeLayerKey]?.geojson) {
@@ -888,7 +946,22 @@
             });
         }
         
-        function setActiveLayer(filename) { if (!IS_MOBILE_VIEW) { map.setView([62, -96], 4); } dataSidebar.classList.remove('visible'); clickedFeature = null; highlightClickedFeature(null); updateLegendIndicator(); if (activeLayerKey && loadedLayers[activeYear] && loadedLayers[activeYear][activeLayerKey] && loadedLayers[activeYear][activeLayerKey].layer) { map.removeLayer(loadedLayers[activeYear][activeLayerKey].layer); } activeLayerKey = filename; updateLayerControl(); updateMapStyles(); calculateAllRanksForLayer(); calculateCurrentIndicatorRanks(); }
+        function setActiveLayer(filename) {
+            if (!IS_MOBILE_VIEW) { map.setView([62, -96], 4); }
+            dataSidebar.classList.remove('visible');
+            clickedFeature = null;
+            highlightClickedFeature(null);
+            updateLegendIndicator();
+            if (activeLayerKey && loadedLayers[activeYear] && loadedLayers[activeYear][activeLayerKey] && loadedLayers[activeYear][activeLayerKey].layer) {
+                map.removeLayer(loadedLayers[activeYear][activeLayerKey].layer);
+            }
+            activeLayerKey = filename;
+            updateLayerControl();
+            updateMapStyles();
+            calculateAllRanksForLayer();
+            calculateAllCorrelationsForLayer();
+            calculateCurrentIndicatorRanks();
+        }
         function updateMapStyles() { if (!activeYear || !activeLayerKey || !loadedLayers[activeYear] || !loadedLayers[activeYear][activeLayerKey] || !currentIndicator) return; if (loadedLayers[activeYear][activeLayerKey].layer) { map.removeLayer(loadedLayers[activeYear][activeLayerKey].layer); } const geojson = loadedLayers[activeYear][activeLayerKey].geojson; const values = geojson.features.map(f => parseFloat(f.properties[currentIndicator])).filter(v => !isNaN(v) && isFinite(v)); if (values.length === 0) { const newLayer = L.geoJSON(geojson, { style: styleFeature(null, null), onEachFeature: onEachFeature }).addTo(map); loadedLayers[activeYear][activeLayerKey].layer = newLayer; legend.classList.add('hidden'); showMessage(`Indicator "${formatIndicatorName(currentIndicator)}" not found in ${activeLayerKey} data.`, 'orange'); return; } const currentScale = chroma.scale('viridis').domain(getBreaks(values, 5)); indicatorScales[currentIndicator] = currentScale; const newLayer = L.geoJSON(geojson, { style: (f) => styleFeature(f, currentScale), onEachFeature: onEachFeature }).addTo(map); loadedLayers[activeYear][activeLayerKey].layer = newLayer; updateLegend(currentScale, currentIndicator); }
         function getBreaks(data, numBreaks) { const sortedData = [...new Set(data)].sort((a, b) => a - b); if (sortedData.length === 0) return [0, 1]; const min = sortedData[0]; const max = sortedData[sortedData.length - 1]; if (sortedData.length < numBreaks) return [min, max]; const breaks = []; for (let i = 0; i < numBreaks; i++) { breaks.push(min + (i / (numBreaks - 1)) * (max - min)); } return breaks; }
         function styleFeature(feature, scale) { let value = 'N/A'; if (feature) value = parseFloat(feature.properties[currentIndicator]); return { fillColor: (feature && currentIndicator && !isNaN(value) && scale) ? scale(value).hex() : '#dddddd', weight: 1, opacity: 1, color: 'white', dashArray: '3', fillOpacity: 0.75 }; }
@@ -1701,7 +1774,7 @@
                 }
             }
             
-            let content = `<div class="flex justify-between items-center mb-4"><h3 class="text-xl font-semibold">${getRegionName(properties, activeLayerKey)} - ${activeYear}</h3><button id="close-data-sidebar" class="text-gray-500 hover:text-gray-800 text-2xl leading-none">&times;</button></div><div class="flex justify-center items-center my-2 gap-x-3"><button id="open-download-modal-btn" class="download-btn">Download CSV</button><button id="download-pdf-btn" class="download-btn">Download PDF</button><button id="download-image-btn" class="download-btn">Download Image</button></div><div id="data-sidebar-content"><div id="ranking-chart-container" style="height: 400px; margin-bottom: 1rem;"><canvas id="rankingChart"></canvas></div><div id="histogram-chart-container" style="height: 250px; margin-bottom: 1rem;"><canvas id="histogramChart"></canvas></div><table id="indicator-table"><thead><tr><th>Indicator</th><th>Count</th><th>% or $</th><th>${rankHeader}</th></tr></thead><tbody>`; 
+            let content = `<div class="flex justify-between items-center mb-4"><h3 class="text-xl font-semibold">${getRegionName(properties, activeLayerKey)} - ${activeYear}</h3><button id="close-data-sidebar" class="text-gray-500 hover:text-gray-800 text-2xl leading-none">&times;</button></div><div class="flex justify-center items-center my-2 gap-x-3"><button id="open-download-modal-btn" class="download-btn">Download CSV</button><button id="download-pdf-btn" class="download-btn">Download PDF</button><button id="download-image-btn" class="download-btn">Download Image</button></div><div id="data-sidebar-content"><div id="ranking-chart-container" style="height: 400px; margin-bottom: 1rem;"><canvas id="rankingChart"></canvas></div><div id="histogram-chart-container" style="height: 250px; margin-bottom: 1rem;"><canvas id="histogramChart"></canvas></div><table id="indicator-table"><thead><tr><th>Indicator</th><th>Count</th><th>% or $</th><th>${rankHeader}</th><th>Correlation</th></tr></thead><tbody>`; 
             
             if (properties.hasOwnProperty('total_pop')) {
                 const indicatorKey = 'total_pop';
@@ -1711,6 +1784,7 @@
                 
                 const countValueCell = getValueCell(properties, indicatorKey);
                 const percentValueCell = '<td></td>';
+                const correlationCell = getCorrelationCell(indicatorKey);
 
                 let rankCell = '<td>N/A</td>';
                 if (allIndicatorRanks.has(indicatorKey)) {
@@ -1720,7 +1794,7 @@
                         rankCell = `<td class="text-center font-bold">${rank}</td>`;
                     }
                 }
-                content += `<tr class="${rowClass}" ${dataAttribute}><td title="${formattedName}">${formattedName}</td>${countValueCell}${percentValueCell}${rankCell}</tr>`;
+                content += `<tr class="${rowClass}" ${dataAttribute}><td title="${formattedName}">${formattedName}</td>${countValueCell}${percentValueCell}${rankCell}${correlationCell}</tr>`;
             }
             
             const indicatorPairs = {}; 
@@ -1745,6 +1819,7 @@
                 const formattedBaseName = formatIndicatorName(baseName).replace(/ \(.+\)/, ''); 
                 let rowClass = (currentIndicator === indicatorForDisplay) ? 'sidebar-highlight' : ''; 
                 let dataAttribute = percentInd ? `data-indicator="${percentInd}"` : ''; 
+                const correlationCell = getCorrelationCell(percentInd);
 
                 let rankCell = '<td></td>';
                 if(percentInd) {
@@ -1761,7 +1836,7 @@
                      }
                 }
                 
-                content += `<tr class="${rowClass}" ${dataAttribute}><td title="${formattedBaseName}">${formattedBaseName}</td>${getValueCell(properties, countInd)}${getValueCell(properties, percentInd)}${rankCell}</tr>`; 
+                content += `<tr class="${rowClass}" ${dataAttribute}><td title="${formattedBaseName}">${formattedBaseName}</td>${getValueCell(properties, countInd)}${getValueCell(properties, percentInd)}${rankCell}${correlationCell}</tr>`; 
             } 
             
             content += '</tbody></table></div>'; 
@@ -1780,6 +1855,27 @@
                     changeIndicator(newIndicator, true); 
                 } 
             }); 
+        }
+
+        function getCorrelationCell(indicator) {
+            if (!currentIndicator || !indicator) return '<td></td>';
+            if (indicator === currentIndicator) return '<td class="text-center font-bold">1.00</td>';
+
+            const correlationKey = `${currentIndicator}|${indicator}`;
+            const correlationValue = indicatorCorrelations.get(correlationKey);
+
+            if (isNaN(correlationValue) || correlationValue === null) {
+                return '<td class="text-center">N/A</td>';
+            }
+            
+            const absCorr = Math.abs(correlationValue);
+            let bgColor = 'transparent';
+            if (absCorr > 0.1) {
+                 bgColor = chroma.scale(['#f8696b', '#fcfbcf', '#63be7b']).domain([-1, 0, 1])(correlationValue).hex();
+            }
+            const textColor = chroma(bgColor).luminance() < 0.4 ? 'white' : 'black';
+
+            return `<td style="background-color:${bgColor}; color:${textColor};" class="text-center font-bold">${correlationValue.toFixed(2)}</td>`;
         }
 
         function getValueCell(properties, indicator) { if (!indicator) return '<td></td>'; const rawValue = properties[indicator]; const numValue = parseFloat(rawValue); if (rawValue == null || isNaN(numValue)) return `<td class="text-center">N/A</td>`; const displayValue = formatValue(numValue, indicator); if (indicator.toLowerCase().endsWith('_count') || indicator.toLowerCase() === 'total_pop') return `<td class="text-center">${displayValue}</td>`; const scale = indicatorScales[indicator]; const bgColor = scale ? scale(numValue).hex() : 'transparent'; const textColor = scale && chroma(bgColor).luminance() > 0.5 ? 'black' : 'white'; return `<td style="background-color:${bgColor}; color:${textColor};" class="text-center">${displayValue}</td>`; }
