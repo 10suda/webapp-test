@@ -25,7 +25,7 @@
     <script src="https://unpkg.com/leaflet-geosearch@3.11.0/dist/geosearch.umd.js"></script>
     
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 
     <style>
         /* CDP Brand Colors */
@@ -376,6 +376,59 @@
             max-height: 100vh;
             border-radius: 0;
         }
+        
+        /* Infographic Staging Area */
+        #infographic-container {
+            position: absolute;
+            left: -9999px;
+            top: 0;
+            width: 800px;
+            background: white;
+            padding: 20px;
+            border: 1px solid #ccc;
+            font-family: 'Lato', sans-serif;
+            color: #333;
+        }
+        #infographic-container h1 {
+            font-size: 24px;
+            font-weight: bold;
+            text-align: center;
+            margin-bottom: 15px;
+            color: var(--cdp-dark-grey);
+        }
+        #infographic-container h2 {
+            font-size: 18px;
+            font-weight: bold;
+            margin-top: 20px;
+            border-bottom: 2px solid var(--cdp-teal);
+            padding-bottom: 5px;
+            margin-bottom: 10px;
+        }
+        #infographic-container img {
+            max-width: 100%;
+            height: auto;
+            margin-top: 10px;
+            margin-bottom: 20px;
+            border: 1px solid #eee;
+        }
+        #infographic-container table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 12px;
+        }
+        #infographic-container th, #infographic-container td {
+            border: 1px solid #ddd;
+            padding: 6px;
+            text-align: left;
+        }
+        #infographic-container th {
+            background-color: #f2f2f2;
+            text-align: center;
+        }
+        #infographic-container td:nth-child(n+2) {
+            text-align: center;
+        }
+
     </style>
 </head>
 <body class="bg-gray-100 text-gray-800">
@@ -443,6 +496,8 @@
             </div>
         </div>
     </div>
+    
+    <div id="infographic-container"></div>
 
 
     <script>
@@ -516,7 +571,7 @@
             "highschool_youth_25_34": { "definition": "% of the population aged 25-34 with only a High school diploma or equivalent", "source": "Statistics Canada: 2016 Census Cat. no. 98-401-X2016021, 98-401-X2016067" },
             "highschool_adult_35-64": { "definition": "% of the population aged 35-64 with only a High school diploma or equivalent", "source": "Statistics Canada: 2016 Census Cat. no. 98-401-X2016021, 98-401-X2016068" },
             "educational_assets_youth_20_34": { "definition": "% of the population aged 20-34 that has completed a postsecondary certificate, diploma or degree", "source": "Statistics Canada: 2016 Census Cat. no. 98-401-X2016021, 98-401-X2016069" },
-            "educational_assets_adults_35_64": { "definition": "% of the population aged 35-64 year that has completed a postsecondary certificate, diploma or degree", "source": "Statistics Canada: 2016 Census Cat. no. 98-401-X2016070" },
+            "educational_assets_adults_35_64": { "definition": "% of the population aged 35-64 year that has completed a postsecondary certificate, diploma or degree", "source": "Statistics Canada: 2016 Census Cat. no. 98-401-X2016021, 98-401-X2016070" },
             "youth_unemployment_20_34": { "definition": "% of the labour force aged 20-34 that is unemployed", "source": "Statistics Canada: 2016 Census Cat. no. 98-401-X2016021, 98-401-X2016071" },
             "adult_unemployment_35_64": { "definition": "% of the labour force aged 35-64 that is unemployed", "source": "Statistics Canada: 2016 Census Cat. no. 98-401-X2016021, 98-401-X2016072" },
             "low_wage_employment_25": { "definition": "% of the population aged 25+ working in retail trade and accommodation and food services", "source": "Statistics Canada: 2016 Census Cat. no. 98-401-X2016021, 98-401-X2016072" }
@@ -559,7 +614,7 @@
         function isCurrencyIndicator(indicatorName) { return indicatorName && indicatorName.toLowerCase() === 'avg_after_tax_income_25_over'; }
         function isPercentageIndicator(indicatorName) { const lowerName = indicatorName.toLowerCase(); return !lowerName.endsWith('_count') && !isCurrencyIndicator(lowerName) && lowerName !== 'total_pop'; }
         function formatValue(value, indicator) { const numValue = parseFloat(value); if (isNaN(numValue) || numValue === null) return 'N/A'; if (isPercentageIndicator(indicator)) return (numValue * 100).toFixed(1) + '%'; if (isCurrencyIndicator(indicator)) return '$' + Math.round(numValue).toLocaleString(); return Math.round(numValue).toLocaleString(); }
-        function formatHistogramLabel(value, indicator) { const numValue = parseFloat(value); if (isNaN(numValue) || numValue === null) return 'N/A'; if (isPercentageIndicator(indicator)) return (numValue * 100).toFixed(0) + '%'; if (isCurrencyIndicator(indicator)) return '$' + Math.round(numValue / 1000) + 'k'; return Math.round(numValue).toLocaleString(); }
+        function formatHistogramLabel(value, indicator) { const numValue = parseFloat(value); if (isNaN(numValue) || numValue === null) return 'N/A'; if (isPercentageIndicator(indicator)) return (numValue * 100).toFixed(0); if (isCurrencyIndicator(indicator)) return '$' + Math.round(numValue / 1000) + 'k'; return Math.round(numValue).toLocaleString(); }
         function formatIndicatorName(name) { let formattedName = name.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()); if (isPercentageIndicator(name)) formattedName += ' (%)'; else if (name.toLowerCase().endsWith('count') || name.toLowerCase() === 'total_pop') formattedName = formattedName.replace(' Count', '') + ' (Count)'; else if (isCurrencyIndicator(name)) formattedName += ' ($)'; formattedName = formattedName.replace(/(\d+)\s(\d+)/g, '$1-$2'); return formattedName; }
         
         function getPercentile(sortedData, percentile) {
@@ -773,7 +828,7 @@
         function createOrUpdateHistogram(data) {
             const container = document.getElementById('histogram-chart-container');
             if (histogramChart) { histogramChart.destroy(); }
-            if (!container || data.length < 4) { 
+            if (!container || data.length < 5) { 
                 if(container) container.innerHTML = '';
                 return;
             };
@@ -815,7 +870,7 @@
             } else if (coreData.length > 0) {
                 coreBins[Math.floor(numBins / 2)] = coreData.length;
             }
-
+            
             const finalLabels = [`< ${formatHistogramLabel(lowerFence, currentIndicator)}`, ...coreLabels, `> ${formatHistogramLabel(upperFence, currentIndicator)}`];
             const finalBins = [underflow.length, ...coreBins, overflow.length];
             
@@ -829,7 +884,7 @@
                         selectedValueBin = finalBins.length - 1;
                     } else if (binWidth > 0) {
                         let binIndex = Math.floor((selectedValue - coreMin) / binWidth);
-                        if(selectedValue === coreMax) binIndex = numBins - 1;
+                        if (selectedValue === coreMax) binIndex = numBins - 1;
                         selectedValueBin = binIndex + 1;
                     } else if (coreData.length > 0 && selectedValue === coreMin) {
                         selectedValueBin = Math.floor(numBins / 2) + 1;
@@ -872,7 +927,58 @@
                 }
             });
         }
+        
+        async function downloadImage() {
+            if (!clickedFeature) {
+                alert("Please click on a geography first.");
+                return;
+            }
+            showMessage('Generating image...', 'blue');
 
+            const infographicContainer = document.getElementById('infographic-container');
+            const tableToClone = document.getElementById('indicator-table');
+            const properties = clickedFeature.properties;
+
+            infographicContainer.innerHTML = `
+                <h1>${getRegionName(properties, activeLayerKey)} - ${activeYear}</h1>
+                <h2>${formatIndicatorName(currentIndicator)}</h2>
+                <div style="display: flex; gap: 20px; align-items: flex-start;">
+                    <div style="flex: 1;">
+                        <h2>Ranking Comparison</h2>
+                        <img src="${rankingChart.toBase64Image()}" />
+                    </div>
+                    <div style="flex: 1;">
+                        <h2>Indicator Distribution</h2>
+                        <img src="${histogramChart.toBase64Image()}" />
+                    </div>
+                </div>
+                <h2>Full Data Table</h2>
+            `;
+            infographicContainer.appendChild(tableToClone.cloneNode(true));
+
+            // Check if html2canvas is available
+            if (typeof html2canvas === 'undefined') {
+                alert('Image generation feature is not fully enabled. Please add the html2canvas script to the HTML file to complete this functionality.');
+                 showMessage('Image generation requires an external library.', 'orange');
+                infographicContainer.innerHTML = ''; // Clean up
+                return;
+            }
+
+            // --- The following code will run ONLY if you add the html2canvas script ---
+            try {
+                const canvas = await html2canvas(infographicContainer, { scale: 2 });
+                const link = document.createElement('a');
+                link.download = `${getRegionName(properties, activeLayerKey).replace(/\s/g, '_')}_infographic.png`;
+                link.href = canvas.toDataURL("image/png").replace("image/png", "image/octet-stream");
+                link.click();
+                showMessage('Image download started.', 'green');
+            } catch (error) {
+                console.error("Error generating image:", error);
+                showMessage('Could not generate image.', 'red');
+            } finally {
+                 infographicContainer.innerHTML = ''; // Clean up after generation
+            }
+        }
 
         function populateDataSidebar(properties) {
             const uid = getRegionUID(properties, activeLayerKey);
@@ -886,7 +992,7 @@
                 }
             }
 
-            let content = `<div class="flex justify-between items-center mb-4"><h3 class="text-xl font-semibold">${getRegionName(properties, activeLayerKey)} - ${activeYear}</h3><button id="close-data-sidebar" class="text-gray-500 hover:text-gray-800 text-2xl leading-none">&times;</button></div><div><button id="open-download-modal-btn" class="download-btn">Download CSV</button></div><div id="data-sidebar-content"><div id="ranking-chart-container" style="height: 400px; margin-bottom: 1rem;"><canvas id="rankingChart"></canvas></div><div id="histogram-chart-container" style="height: 250px; margin-bottom: 1rem;"><canvas id="histogramChart"></canvas></div><table id="indicator-table"><thead><tr><th>Indicator</th><th>Count</th><th>% or $</th><th>${rankHeader}</th></tr></thead><tbody>`; 
+            let content = `<div class="flex justify-between items-center mb-4"><h3 class="text-xl font-semibold">${getRegionName(properties, activeLayerKey)} - ${activeYear}</h3><button id="close-data-sidebar" class="text-gray-500 hover:text-gray-800 text-2xl leading-none">&times;</button></div><div class="flex"><button id="open-download-modal-btn" class="download-btn">Download CSV</button><button id="download-image-btn" class="download-btn ml-2">Download Image</button></div><div id="data-sidebar-content"><div id="ranking-chart-container" style="height: 400px; margin-bottom: 1rem;"><canvas id="rankingChart"></canvas></div><div id="histogram-chart-container" style="height: 250px; margin-bottom: 1rem;"><canvas id="histogramChart"></canvas></div><table id="indicator-table"><thead><tr><th>Indicator</th><th>Count</th><th>% or $</th><th>${rankHeader}</th></tr></thead><tbody>`; 
             
             if (properties.hasOwnProperty('total_pop')) {
                 const indicatorKey = 'total_pop';
@@ -956,6 +1062,7 @@
             createOrUpdateHistogram(getIndicatorDistribution());
             document.getElementById('close-data-sidebar').onclick = () => { clickedFeature = null; highlightClickedFeature(null); dataSidebar.classList.remove('visible'); updateLegendIndicator(); }; 
             document.getElementById('open-download-modal-btn').onclick = () => openDownloadModal(properties); 
+            document.getElementById('download-image-btn').onclick = downloadImage;
             document.getElementById('indicator-table').querySelector('tbody').addEventListener('click', (event) => { 
                 const row = event.target.closest('tr'); 
                 if (row && row.dataset.indicator) { 
