@@ -27,6 +27,7 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0/dist/chartjs-plugin-datalabels.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 
     <style>
         /* CDP Brand Colors */
@@ -817,7 +818,7 @@
         
         function setActiveYear(year) { clickedFeature = null; highlightClickedFeature(null); const lastActiveLayerType = activeLayerKey ? getLayerType(activeLayerKey) : null; if (activeLayerKey && loadedLayers[activeYear] && loadedLayers[activeYear][activeLayerKey] && loadedLayers[activeYear][activeLayerKey].layer) { map.removeLayer(loadedLayers[activeYear][activeLayerKey].layer); } activeYear = year; updateYearControl(); updateLayerControl(); let nextLayerKey = null; if (lastActiveLayerType && loadedLayers[activeYear]) nextLayerKey = Object.keys(loadedLayers[activeYear]).find(key => getLayerType(key) === lastActiveLayerType); if (!nextLayerKey && loadedLayers[year]) { const sortedLayers = Object.keys(loadedLayers[year]).sort((a, b) => layerOrder.findIndex(p => a.toUpperCase().includes(p)) - layerOrder.findIndex(p => b.toUpperCase().includes(p))); nextLayerKey = sortedLayers[0]; } if (nextLayerKey) { setActiveLayer(nextLayerKey); } else { if (activeLayerKey) { if(loadedLayers[activeYear] && loadedLayers[activeYear][activeLayerKey] && loadedLayers[activeYear][activeLayerKey].layer) { map.removeLayer(loadedLayers[activeYear][activeLayerKey].layer); } activeLayerKey = null; } legend.classList.add('hidden'); } updateIndicatorInfo(currentIndicator); }
         function setActiveLayer(filename) { if (!IS_MOBILE_VIEW) { map.setView([62, -96], 4); } dataSidebar.classList.remove('visible'); clickedFeature = null; highlightClickedFeature(null); updateLegendIndicator(); if (activeLayerKey && loadedLayers[activeYear] && loadedLayers[activeYear][activeLayerKey] && loadedLayers[activeYear][activeLayerKey].layer) { map.removeLayer(loadedLayers[activeYear][activeLayerKey].layer); } activeLayerKey = filename; updateLayerControl(); updateMapStyles(); calculateAllRanksForLayer(); calculateCurrentIndicatorRanks(); }
-        function updateMapStyles() { if (!activeYear || !activeLayerKey || !loadedLayers[activeYear] || !loadedLayers[activeYear][activeLayerKey] || !currentIndicator) return; if (loadedLayers[activeYear][activeLayerKey].layer) { map.removeLayer(loadedLayers[activeYear][activeLayerKey].layer); } const geojson = loadedLayers[activeYear][activeLayerKey].geojson; const values = geojson.features.map(f => parseFloat(f.properties[currentIndicator])).filter(v => !isNaN(v) && isFinite(v)); if (values.length === 0) { const newLayer = L.geoJSON(geojson, { style: styleFeature(null, null), onEachFeature: onEachFeature }).addTo(map); loadedLayers[activeYear][activeLayerKey].layer = newLayer; legend.classList.add('hidden'); showMessage(`Indicator "${formatIndicatorName(currentIndicator)}" not found in ${activeLayerKey} data.`, 'orange'); return; } const currentScale = chroma.scale('viridis').domain(getBreaks(values, 5)); indicatorScales[currentIndicator] = currentScale; const newLayer = L.geoJSON(geojson, { style: (f) => styleFeature(f, currentScale), onEachFeature: onEachFeature }).addTo(map); loadedLayers[activeYear][activeLayerKey].layer = newLayer; updateLegend(currentScale, currentIndicator); }
+        function updateMapStyles() { if (!activeYear || !activeLayerKey || !loadedLayers[activeYear] || !loadedLayers[activeLayerKey][activeLayerKey] || !currentIndicator) return; if (loadedLayers[activeYear][activeLayerKey].layer) { map.removeLayer(loadedLayers[activeYear][activeLayerKey].layer); } const geojson = loadedLayers[activeYear][activeLayerKey].geojson; const values = geojson.features.map(f => parseFloat(f.properties[currentIndicator])).filter(v => !isNaN(v) && isFinite(v)); if (values.length === 0) { const newLayer = L.geoJSON(geojson, { style: styleFeature(null, null), onEachFeature: onEachFeature }).addTo(map); loadedLayers[activeYear][activeLayerKey].layer = newLayer; legend.classList.add('hidden'); showMessage(`Indicator "${formatIndicatorName(currentIndicator)}" not found in ${activeLayerKey} data.`, 'orange'); return; } const currentScale = chroma.scale('viridis').domain(getBreaks(values, 5)); indicatorScales[currentIndicator] = currentScale; const newLayer = L.geoJSON(geojson, { style: (f) => styleFeature(f, currentScale), onEachFeature: onEachFeature }).addTo(map); loadedLayers[activeYear][activeLayerKey].layer = newLayer; updateLegend(currentScale, currentIndicator); }
         function getBreaks(data, numBreaks) { const sortedData = [...new Set(data)].sort((a, b) => a - b); if (sortedData.length === 0) return [0, 1]; const min = sortedData[0]; const max = sortedData[sortedData.length - 1]; if (sortedData.length < numBreaks) return [min, max]; const breaks = []; for (let i = 0; i < numBreaks; i++) { breaks.push(min + (i / (numBreaks - 1)) * (max - min)); } return breaks; }
         function styleFeature(feature, scale) { let value = 'N/A'; if (feature) value = parseFloat(feature.properties[currentIndicator]); return { fillColor: (feature && currentIndicator && !isNaN(value) && scale) ? scale(value).hex() : '#dddddd', weight: 1, opacity: 1, color: 'white', dashArray: '3', fillOpacity: 0.75 }; }
         function updateLegend(scale, indicator) { const domain = scale.domain(); const colors = scale.colors(5); let gradient = 'linear-gradient(to right, ' + colors.join(', ') + ')'; legend.innerHTML = `<h4>${formatIndicatorName(indicator).replace(/ \(.+\)/,'')}</h4><div class="legend-scale-container" style="position: relative;"><div class="color-bar" style="background: ${gradient};"></div></div><div class="labels"><span>${formatValue(domain[0], indicator)}</span><span>${formatValue(domain[domain.length - 1], indicator)}</span></div>`; legend.classList.remove('hidden'); updateLegendIndicator(); }
@@ -986,39 +987,49 @@
             }
         }
 
-        function createDrillDownHistogram(canvasId, featuresInBin, binLabel) {
+        function createDrillDownHistogram(canvasId, featuresInBin) {
             const data = featuresInBin.map(f => parseFloat(f.properties[currentIndicator])).filter(v => !isNaN(v) && isFinite(v));
-            const numBins = Math.max(1, Math.min(10, Math.ceil(Math.sqrt(data.length))));
+            if (data.length === 0) return;
+
+            const numBins = Math.min(5, new Set(data).size);
             const min = Math.min(...data);
             const max = Math.max(...data);
-            const binWidth = (max - min) / numBins || 1;
+            const binWidth = (max - min) > 0 ? (max - min) / numBins : 0;
 
             const labels = [];
             const bins = Array(numBins).fill(0);
 
             for (let i = 0; i < numBins; i++) {
                 const binMin = min + i * binWidth;
-                const binMax = min + (i + 1) * binWidth;
+                const binMax = binMin + binWidth;
                 labels.push(`${formatDrillDownLabel(binMin, currentIndicator)} - ${formatDrillDownLabel(binMax, currentIndicator)}`);
             }
 
             for (const value of data) {
+                 if (binWidth === 0) {
+                    bins[0]++;
+                    continue;
+                }
                 let binIndex = Math.floor((value - min) / binWidth);
                 if (binIndex >= numBins) binIndex = numBins - 1;
                 bins[binIndex]++;
             }
-
+            
             const selectedValue = parseFloat(clickedFeature.properties[currentIndicator]);
             let selectedValueBin = -1;
             if (!isNaN(selectedValue) && selectedValue >= min && selectedValue <= max) {
-                let binIndex = Math.floor((selectedValue - min) / binWidth);
-                if (binIndex >= numBins) binIndex = numBins - 1;
-                selectedValueBin = binIndex;
+                if (binWidth === 0) {
+                     selectedValueBin = 0;
+                } else {
+                    let binIndex = Math.floor((selectedValue - min) / binWidth);
+                    if (binIndex >= numBins) binIndex = numBins - 1;
+                    selectedValueBin = binIndex;
+                }
             }
             const backgroundColors = bins.map((_, i) => i === selectedValueBin ? 'rgba(255, 193, 7, 0.8)' : 'rgba(0, 123, 123, 0.6)');
             const borderColors = bins.map((_, i) => i === selectedValueBin ? 'rgba(255, 193, 7, 1)' : 'rgba(0, 123, 123, 1)');
-
-
+            
+            const drillDownTitle = `Detailed View: ${formatDrillDownLabel(min, currentIndicator)} to ${formatDrillDownLabel(max, currentIndicator)}`;
             const ctx = document.getElementById(canvasId).getContext('2d');
             new Chart(ctx, {
                 type: 'bar',
@@ -1033,9 +1044,9 @@
                     }]
                 },
                 options: {
-                    indexAxis: 'y', // MODIFIED: Makes the bar chart horizontal
+                    indexAxis: 'y',
                     responsive: true, maintainAspectRatio: false,
-                    plugins: { legend: { display: false }, title: { display: true, text: `Detailed View: ${binLabel}` }, datalabels: { display: false } },
+                    plugins: { legend: { display: false }, title: { display: true, text: drillDownTitle }, datalabels: { display: false } },
                     scales: { y: { beginAtZero: true }, x: { title: { display: true, text: 'Count' } } }
                 }
             });
@@ -1075,10 +1086,9 @@
                  popup.style.top = `${rect.height + 10}px`;
             }
 
-
             popup.querySelector('.drilldown-popup-close').onclick = dismissDrillDownPopup;
             
-            createDrillDownHistogram(canvasId, features, binLabel);
+            createDrillDownHistogram(canvasId, features);
 
             setTimeout(() => {
                 document.addEventListener('click', handleOutsidePopupClick, true);
@@ -1206,7 +1216,7 @@
 
             const introUrl = `https://en.wikipedia.org/w/api.php?action=query&prop=extracts&exintro&explaintext&format=json&redirects=1&origin=*&titles=${encodeURIComponent(finalQuery)}`;
             const imageUrl = `https://en.wikipedia.org/w/api.php?action=query&titles=${encodeURIComponent(finalQuery)}&generator=images&gimlimit=5&prop=imageinfo&iiprop=url&format=json&origin=*`;
-
+            
             try {
                 const [introResponse, imageResponse] = await Promise.all([fetch(introUrl), fetch(imageUrl)]);
                 const introData = await introResponse.json();
@@ -1219,9 +1229,9 @@
                 let imageUrls = [];
                 if (imageData.query && imageData.query.pages) {
                     imageUrls = Object.values(imageData.query.pages)
-                        .filter(page => page.imageinfo && !page.title.toLowerCase().endsWith('.svg')) // Filter out SVGs
+                        .filter(page => page.imageinfo && !page.title.toLowerCase().endsWith('.svg') && !page.title.toLowerCase().endsWith('.tif'))
                         .map(page => page.imageinfo[0].url)
-                        .slice(0, 2); // Take the first two
+                        .slice(0, 2);
                 }
 
                 return { intro, imageUrls };
@@ -1232,21 +1242,19 @@
             }
         }
         
-        async function downloadImage() {
+        async function downloadPdf() {
             if (!clickedFeature) {
                 alert("Please click on a geography first.");
                 return;
             }
-            showMessage('Generating infographic...', 'blue');
+            showMessage('Generating PDF...', 'blue');
 
-            // Bar chart gets labels
             rankingChart.options.plugins.datalabels.display = true;
             rankingChart.update('none');
             const rankingChartImg = rankingChart.toBase64Image();
             rankingChart.options.plugins.datalabels.display = false;
             rankingChart.update('none');
 
-            // Histogram does NOT get labels
             const histogramChartImg = histogramChart ? histogramChart.toBase64Image() : null;
 
             const properties = clickedFeature.properties;
@@ -1261,7 +1269,7 @@
             const tableToClone = document.getElementById('indicator-table');
             
             let wikiHtml = '';
-            if (wikiInfo.intro || wikiInfo.imageUrls.length > 0) {
+            if (wikiInfo.intro || (wikiInfo.imageUrls && wikiInfo.imageUrls.length > 0)) {
                 const imagesHtml = wikiInfo.imageUrls.map(url => `<img src="${url}" crossorigin="anonymous" />`).join('');
                 wikiHtml = `
                     <h2>About ${regionName}</h2>
@@ -1282,21 +1290,18 @@
             infographicContainer.innerHTML = `
                 <h1>${regionName} - ${activeYear}</h1>
                 <h3 class="infographic-subtitle">${formatIndicatorName(currentIndicator)}</h3>
-                
                 ${wikiHtml}
-
-                <h2>About the Indicator</h2>
+                <h2>About this Indicator</h2>
                 <p style="padding: 0 10px 15px 10px; font-size: 14px; line-height: 1.6;">${definition}</p>
-
                 <div class="chart-container">
                     <div class="chart-wrapper">
                         <h2>Ranking Comparison</h2>
-                        <img src="${rankingChartImg}" />
+                        <img src="${rankingChartImg}" crossorigin="anonymous" />
                     </div>
                     ${histogramChartImg ? `
                     <div class="chart-wrapper">
                         <h2>Indicator Distribution</h2>
-                        <img src="${histogramChartImg}" />
+                        <img src="${histogramChartImg}" crossorigin="anonymous" />
                     </div>` : ''}
                 </div>
                 <h2>Data for Selected Area</h2>
@@ -1310,14 +1315,24 @@
             
             try {
                 const canvas = await html2canvas(infographicContainer, { scale: 2, useCORS: true });
-                const link = document.createElement('a');
-                link.download = `${regionName.replace(/\s/g, '_')}_infographic.png`;
-                link.href = canvas.toDataURL("image/png");
-                link.click();
-                showMessage('Image download started.', 'green');
+                const imgData = canvas.toDataURL('image/png');
+                const canvasWidth = canvas.width;
+                const canvasHeight = canvas.height;
+                
+                const { jsPDF } = window.jspdf;
+                const doc = new jsPDF({
+                    orientation: canvasWidth > canvasHeight ? 'l' : 'p',
+                    unit: 'px',
+                    format: [canvasWidth, canvasHeight]
+                });
+
+                doc.addImage(imgData, 'PNG', 0, 0, canvasWidth, canvasHeight);
+                doc.save(`${regionName.replace(/\s/g, '_')}_infographic.pdf`);
+
+                showMessage('PDF download started.', 'green');
             } catch (error) {
-                console.error("Error generating image:", error);
-                showMessage('Could not generate image.', 'red');
+                console.error("Error generating PDF:", error);
+                showMessage('Could not generate PDF.', 'red');
             } finally {
                 infographicContainer.innerHTML = '';
             }
@@ -1335,7 +1350,7 @@
                 }
             }
             
-            let content = `<div class="flex justify-between items-center mb-4"><h3 class="text-xl font-semibold">${getRegionName(properties, activeLayerKey)} - ${activeYear}</h3><button id="close-data-sidebar" class="text-gray-500 hover:text-gray-800 text-2xl leading-none">&times;</button></div><div class="flex justify-center items-center my-2 gap-x-3"><button id="open-download-modal-btn" class="download-btn">Download CSV</button><button id="download-image-btn" class="download-btn">Download Image</button></div><div id="data-sidebar-content"><div id="ranking-chart-container" style="height: 400px; margin-bottom: 1rem;"><canvas id="rankingChart"></canvas></div><div id="histogram-chart-container" style="height: 250px; margin-bottom: 1rem;"><canvas id="histogramChart"></canvas></div><table id="indicator-table"><thead><tr><th>Indicator</th><th>Count</th><th>% or $</th><th>${rankHeader}</th></tr></thead><tbody>`; 
+            let content = `<div class="flex justify-between items-center mb-4"><h3 class="text-xl font-semibold">${getRegionName(properties, activeLayerKey)} - ${activeYear}</h3><button id="close-data-sidebar" class="text-gray-500 hover:text-gray-800 text-2xl leading-none">&times;</button></div><div class="flex justify-center items-center my-2 gap-x-3"><button id="open-download-modal-btn" class="download-btn">Download CSV</button><button id="download-pdf-btn" class="download-btn">Download PDF</button></div><div id="data-sidebar-content"><div id="ranking-chart-container" style="height: 400px; margin-bottom: 1rem;"><canvas id="rankingChart"></canvas></div><div id="histogram-chart-container" style="height: 250px; margin-bottom: 1rem;"><canvas id="histogramChart"></canvas></div><table id="indicator-table"><thead><tr><th>Indicator</th><th>Count</th><th>% or $</th><th>${rankHeader}</th></tr></thead><tbody>`; 
             
             if (properties.hasOwnProperty('total_pop')) {
                 const indicatorKey = 'total_pop';
@@ -1405,7 +1420,7 @@
             createOrUpdateHistogram(getIndicatorDistribution());
             document.getElementById('close-data-sidebar').onclick = () => { dismissDrillDownPopup(); clickedFeature = null; highlightClickedFeature(null); dataSidebar.classList.remove('visible'); updateLegendIndicator(); }; 
             document.getElementById('open-download-modal-btn').onclick = () => openDownloadModal(properties); 
-            document.getElementById('download-image-btn').onclick = downloadImage;
+            document.getElementById('download-pdf-btn').onclick = downloadPdf;
             document.getElementById('indicator-table').querySelector('tbody').addEventListener('click', (event) => { 
                 const row = event.target.closest('tr'); 
                 if (row && row.dataset.indicator) { 
