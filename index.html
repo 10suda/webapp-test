@@ -559,6 +559,7 @@
         function isCurrencyIndicator(indicatorName) { return indicatorName && indicatorName.toLowerCase() === 'avg_after_tax_income_25_over'; }
         function isPercentageIndicator(indicatorName) { const lowerName = indicatorName.toLowerCase(); return !lowerName.endsWith('_count') && !isCurrencyIndicator(lowerName) && lowerName !== 'total_pop'; }
         function formatValue(value, indicator) { const numValue = parseFloat(value); if (isNaN(numValue) || numValue === null) return 'N/A'; if (isPercentageIndicator(indicator)) return (numValue * 100).toFixed(1) + '%'; if (isCurrencyIndicator(indicator)) return '$' + Math.round(numValue).toLocaleString(); return Math.round(numValue).toLocaleString(); }
+        function formatHistogramLabel(value, indicator) { const numValue = parseFloat(value); if (isNaN(numValue) || numValue === null) return 'N/A'; if (isPercentageIndicator(indicator)) return (numValue * 100).toFixed(0) + '%'; if (isCurrencyIndicator(indicator)) return '$' + Math.round(numValue / 1000) + 'k'; return Math.round(numValue).toLocaleString(); }
         function formatIndicatorName(name) { let formattedName = name.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()); if (isPercentageIndicator(name)) formattedName += ' (%)'; else if (name.toLowerCase().endsWith('count') || name.toLowerCase() === 'total_pop') formattedName = formattedName.replace(' Count', '') + ' (Count)'; else if (isCurrencyIndicator(name)) formattedName += ' ($)'; formattedName = formattedName.replace(/(\d+)\s(\d+)/g, '$1-$2'); return formattedName; }
         
         function onEachFeature(feature, layer) {
@@ -764,6 +765,7 @@
             const container = document.getElementById('histogram-chart-container');
             if (!container || data.length === 0) {
                 if(container) container.innerHTML = '';
+                if(histogramChart) histogramChart.destroy();
                 return;
             };
 
@@ -774,11 +776,11 @@
             
             const bins = Array(numBins).fill(0);
             const labels = [];
-
+            
             for (let i = 0; i < numBins; i++) {
                 const binMin = min + i * binWidth;
                 const binMax = min + (i + 1) * binWidth;
-                labels.push(`${formatValue(binMin, currentIndicator)} - ${formatValue(binMax, currentIndicator)}`);
+                labels.push(`${formatHistogramLabel(binMin, currentIndicator)} - ${formatHistogramLabel(binMax, currentIndicator)}`);
             }
 
             for (const value of data) {
@@ -789,6 +791,28 @@
                     bins[binIndex]++;
                 }
             }
+            
+            let selectedValueBin = -1;
+            if (clickedFeature) {
+                const selectedValue = parseFloat(clickedFeature.properties[currentIndicator]);
+                if (!isNaN(selectedValue) && isFinite(selectedValue)) {
+                    if (selectedValue === max) {
+                        selectedValueBin = numBins - 1;
+                    } else {
+                        const binIndex = Math.floor((selectedValue - min) / binWidth);
+                        selectedValueBin = binIndex >= numBins ? numBins - 1 : binIndex;
+                    }
+                }
+            }
+
+            const backgroundColors = Array(numBins).fill('rgba(0, 153, 153, 0.6)');
+            const borderColors = Array(numBins).fill('rgba(0, 153, 153, 1)');
+
+            if (selectedValueBin !== -1) {
+                backgroundColors[selectedValueBin] = 'rgba(255, 193, 7, 0.8)';
+                borderColors[selectedValueBin] = 'rgba(255, 193, 7, 1)';
+            }
+
 
             if (histogramChart) {
                 histogramChart.destroy();
@@ -802,8 +826,8 @@
                     datasets: [{
                         label: 'Number of Geographies',
                         data: bins,
-                        backgroundColor: 'rgba(0, 153, 153, 0.6)',
-                        borderColor: 'rgba(0, 153, 153, 1)',
+                        backgroundColor: backgroundColors,
+                        borderColor: borderColors,
                         borderWidth: 1
                     }]
                 },
