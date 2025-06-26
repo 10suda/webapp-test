@@ -1435,7 +1435,7 @@
             
             try {
                 // --- CHANGE 3 START: Reduce html2canvas scale for smaller PDF resolution ---
-                const canvas = await html2canvas(infographicContainer, { scale: 1, useCORS: true });
+                const canvas = await html2canvas(infographicContainer, { scale: 2, useCORS: true });
                 // --- CHANGE 3 END ---
 
                 const imgData = canvas.toDataURL('image/png');
