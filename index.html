@@ -131,7 +131,7 @@
             padding: 0;
         }
         #data-sidebar.visible {
-            width: 500px;
+            width: 700px; /* Increased width to prevent horizontal scroll */
             padding: 1rem;
             border-left-width: 1px;
         }
@@ -1515,7 +1515,7 @@
                 }
             }
 
-            let tableHTML = `<table id="infographic-table"><thead><tr><th>Indicator Definition</th><th>Count</th><th>% or $</th><th>${rankHeader}</th></tr></thead><tbody>`;
+            let tableHTML = `<table id="infographic-table"><thead><tr><th>Indicator Definition</th><th>Count</th><th>% or $</th><th>${rankHeader}</th><th>Local Corr.</th><th>Global Corr.</th></tr></thead><tbody>`;
             
             if (properties.hasOwnProperty('total_pop')) {
                 const indicatorKey = 'total_pop';
@@ -1530,7 +1530,11 @@
                         rankCell = `<td class="text-center font-bold">${rankMap.get(uid).rank}</td>`;
                     }
                 }
-                tableHTML += `<tr><td>${tableDefinition}</td>${countValueCell}${percentValueCell}${rankCell}</tr>`;
+                const localCorr = indicatorCorrelations.get(`${currentIndicator}|${indicatorKey}`);
+                const globalCorr = globalCorrelations.get(`${currentIndicator}|${indicatorKey}`);
+                const localCorrCell = `<td>${!isNaN(localCorr) ? localCorr.toFixed(2) : 'N/A'}</td>`;
+                const globalCorrCell = `<td>${!isNaN(globalCorr) ? globalCorr.toFixed(2) : 'N/A'}</td>`;
+                tableHTML += `<tr><td>${tableDefinition}</td>${countValueCell}${percentValueCell}${rankCell}${localCorrCell}${globalCorrCell}</tr>`;
             }
             
             const indicatorPairs = {}; 
@@ -1563,7 +1567,13 @@
                          rankCell = '<td>N/A</td>';
                      }
                 }
-                tableHTML += `<tr><td>${tableDefinition}</td>${getValueCell(properties, countInd)}${getValueCell(properties, percentInd)}${rankCell}</tr>`; 
+
+                const localCorr = indicatorCorrelations.get(`${currentIndicator}|${percentInd}`);
+                const globalCorr = globalCorrelations.get(`${currentIndicator}|${percentInd}`);
+                const localCorrCell = `<td>${percentInd ? (!isNaN(localCorr) ? localCorr.toFixed(2) : 'N/A') : ''}</td>`;
+                const globalCorrCell = `<td>${percentInd ? (!isNaN(globalCorr) ? globalCorr.toFixed(2) : 'N/A') : ''}</td>`;
+
+                tableHTML += `<tr><td>${tableDefinition}</td>${getValueCell(properties, countInd)}${getValueCell(properties, percentInd)}${rankCell}${localCorrCell}${globalCorrCell}</tr>`; 
             } 
             
             tableHTML += '</tbody></table>';
@@ -1571,31 +1581,24 @@
             tempDiv.innerHTML = tableHTML;
             infographicContainer.appendChild(tempDiv.firstChild);
 
-            // --- COLOR BAR INSERTION START ---
             const scale = indicatorScales[currentIndicator];
-            // Only add legend for indicators that have a color scale
             if (scale && (isPercentageIndicator(currentIndicator) || isCurrencyIndicator(currentIndicator))) {
-                const domain = scale.domain();
                 const colors = scale.colors(7);
                 const gradient = 'linear-gradient(to right, ' + colors.join(', ') + ')';
-                const minLabel = formatValue(domain[0], currentIndicator);
-                const maxLabel = formatValue(domain[domain.length - 1], currentIndicator);
-
                 const legendHtml = `
                     <div class="infographic-legend">
                         <h3>Colour Legend</h3>
                         <div class="legend-content">
                             <div class="color-bar" style="background: ${gradient};"></div>
                             <div class="labels">
-                                <span>${minLabel} (Low)</span>
-                                <span>${maxLabel} (High)</span>
+                                <span>Low</span>
+                                <span>High</span>
                             </div>
                         </div>
                     </div>
                 `;
                 infographicContainer.insertAdjacentHTML('beforeend', legendHtml);
             }
-            // --- COLOR BAR INSERTION END ---
 
             const footer = document.createElement('div');
             footer.className = 'infographic-footer';
@@ -1700,7 +1703,7 @@
                 }
             }
 
-            let tableHTML = `<table id="infographic-table"><thead><tr><th>Indicator Definition</th><th>Count</th><th>% or $</th><th>${rankHeader}</th></tr></thead><tbody>`;
+            let tableHTML = `<table id="infographic-table"><thead><tr><th>Indicator Definition</th><th>Count</th><th>% or $</th><th>${rankHeader}</th><th>Local Corr.</th><th>Global Corr.</th></tr></thead><tbody>`;
             
             if (properties.hasOwnProperty('total_pop')) {
                 const indicatorKey = 'total_pop';
@@ -1715,7 +1718,11 @@
                         rankCell = `<td class="text-center font-bold">${rankMap.get(uid).rank}</td>`;
                     }
                 }
-                tableHTML += `<tr><td>${tableDefinition}</td>${countValueCell}${percentValueCell}${rankCell}</tr>`;
+                const localCorr = indicatorCorrelations.get(`${currentIndicator}|${indicatorKey}`);
+                const globalCorr = globalCorrelations.get(`${currentIndicator}|${indicatorKey}`);
+                const localCorrCell = `<td>${!isNaN(localCorr) ? localCorr.toFixed(2) : 'N/A'}</td>`;
+                const globalCorrCell = `<td>${!isNaN(globalCorr) ? globalCorr.toFixed(2) : 'N/A'}</td>`;
+                tableHTML += `<tr><td>${tableDefinition}</td>${countValueCell}${percentValueCell}${rankCell}${localCorrCell}${globalCorrCell}</tr>`;
             }
             
             const indicatorPairs = {}; 
@@ -1748,7 +1755,11 @@
                          rankCell = '<td>N/A</td>';
                      }
                 }
-                tableHTML += `<tr><td>${tableDefinition}</td>${getValueCell(properties, countInd)}${getValueCell(properties, percentInd)}${rankCell}</tr>`; 
+                const localCorr = indicatorCorrelations.get(`${currentIndicator}|${percentInd}`);
+                const globalCorr = globalCorrelations.get(`${currentIndicator}|${percentInd}`);
+                const localCorrCell = `<td>${percentInd ? (!isNaN(localCorr) ? localCorr.toFixed(2) : 'N/A') : ''}</td>`;
+                const globalCorrCell = `<td>${percentInd ? (!isNaN(globalCorr) ? globalCorr.toFixed(2) : 'N/A') : ''}</td>`;
+                tableHTML += `<tr><td>${tableDefinition}</td>${getValueCell(properties, countInd)}${getValueCell(properties, percentInd)}${rankCell}${localCorrCell}${globalCorrCell}</tr>`; 
             } 
             
             tableHTML += '</tbody></table>';
@@ -1758,20 +1769,16 @@
 
             const scale = indicatorScales[currentIndicator];
             if (scale && (isPercentageIndicator(currentIndicator) || isCurrencyIndicator(currentIndicator))) {
-                const domain = scale.domain();
                 const colors = scale.colors(7);
                 const gradient = 'linear-gradient(to right, ' + colors.join(', ') + ')';
-                const minLabel = formatValue(domain[0], currentIndicator);
-                const maxLabel = formatValue(domain[domain.length - 1], currentIndicator);
-
                 const legendHtml = `
                     <div class="infographic-legend">
                         <h3>Colour Legend</h3>
                         <div class="legend-content">
                             <div class="color-bar" style="background: ${gradient};"></div>
                             <div class="labels">
-                                <span>${minLabel} (Low)</span>
-                                <span>${maxLabel} (High)</span>
+                                <span>Low</span>
+                                <span>High</span>
                             </div>
                         </div>
                     </div>
