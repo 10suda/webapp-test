@@ -616,6 +616,8 @@
         let activeDrillDownPopup = null;
         let allIndicatorRanks = new Map();
         let indicatorCorrelations = new Map();
+        let globalCorrelations = new Map();
+        let calculatedGlobalCorrelationsForYear = null;
         let activeRanks = new Map();
         const idKeys = ['CDUID', 'PRUID', 'CSDUID', 'CTUID', 'CMAUID', 'CMAPUID'];
         const nameKeys = ['CDNAME', 'PRNAME', 'CSDNAME', 'CTNAME', 'CMANAME'];
@@ -816,6 +818,8 @@
             updateYearControl();
             updateLayerControl();
             
+            calculateAllGlobalCorrelations();
+
             let nextLayerKey = null;
             if (lastActiveLayerType && loadedLayers[activeYear]) {
                 nextLayerKey = Object.keys(loadedLayers[activeYear]).find(key => getLayerType(key) === lastActiveLayerType);
@@ -921,6 +925,44 @@
                     indicatorCorrelations.set(`${indB}|${indA}`, correlation);
                 }
             }
+        }
+
+        function calculateAllGlobalCorrelations() {
+            if (calculatedGlobalCorrelationsForYear === activeYear) return;
+
+            globalCorrelations.clear();
+            if (!activeYear || !loadedLayers[activeYear]) return;
+
+            showMessage(`Calculating global correlations for ${activeYear}...`, 'blue');
+
+            const selectableIndicators = allIndicators.filter(ind => !ind.toLowerCase().endsWith('_count') || ind.toLowerCase() === 'total_pop');
+            const availableLayersForYear = Object.values(loadedLayers[activeYear]);
+
+            for (let i = 0; i < selectableIndicators.length; i++) {
+                for (let j = i; j < selectableIndicators.length; j++) {
+                    const indA = selectableIndicators[i];
+                    const indB = selectableIndicators[j];
+
+                    const layerCorrelations = [];
+                    for (const layerData of availableLayersForYear) {
+                        const features = layerData.geojson.features;
+                        const correlation = calculateCorrelation(features, indA, indB);
+                        if (!isNaN(correlation)) {
+                            layerCorrelations.push(correlation);
+                        }
+                    }
+
+                    let globalAvg = NaN;
+                    if (layerCorrelations.length > 0) {
+                        globalAvg = layerCorrelations.reduce((a, b) => a + b, 0) / layerCorrelations.length;
+                    }
+
+                    globalCorrelations.set(`${indA}|${indB}`, globalAvg);
+                    globalCorrelations.set(`${indB}|${indA}`, globalAvg);
+                }
+            }
+            calculatedGlobalCorrelationsForYear = activeYear;
+            showMessage('Global correlations ready.', 'green');
         }
 
         function calculateCurrentIndicatorRanks() {
@@ -1774,7 +1816,7 @@
                 }
             }
             
-            let content = `<div class="flex justify-between items-center mb-4"><h3 class="text-xl font-semibold">${getRegionName(properties, activeLayerKey)} - ${activeYear}</h3><button id="close-data-sidebar" class="text-gray-500 hover:text-gray-800 text-2xl leading-none">&times;</button></div><div class="flex justify-center items-center my-2 gap-x-3"><button id="open-download-modal-btn" class="download-btn">Download CSV</button><button id="download-pdf-btn" class="download-btn">Download PDF</button><button id="download-image-btn" class="download-btn">Download Image</button></div><div id="data-sidebar-content"><div id="ranking-chart-container" style="height: 400px; margin-bottom: 1rem;"><canvas id="rankingChart"></canvas></div><div id="histogram-chart-container" style="height: 250px; margin-bottom: 1rem;"><canvas id="histogramChart"></canvas></div><table id="indicator-table"><thead><tr><th>Indicator</th><th>Count</th><th>% or $</th><th>${rankHeader}</th><th>Correlation</th></tr></thead><tbody>`; 
+            let content = `<div class="flex justify-between items-center mb-4"><h3 class="text-xl font-semibold">${getRegionName(properties, activeLayerKey)} - ${activeYear}</h3><button id="close-data-sidebar" class="text-gray-500 hover:text-gray-800 text-2xl leading-none">&times;</button></div><div class="flex justify-center items-center my-2 gap-x-3"><button id="open-download-modal-btn" class="download-btn">Download CSV</button><button id="download-pdf-btn" class="download-btn">Download PDF</button><button id="download-image-btn" class="download-btn">Download Image</button></div><div id="data-sidebar-content"><div id="ranking-chart-container" style="height: 400px; margin-bottom: 1rem;"><canvas id="rankingChart"></canvas></div><div id="histogram-chart-container" style="height: 250px; margin-bottom: 1rem;"><canvas id="histogramChart"></canvas></div><table id="indicator-table"><thead><tr><th>Indicator</th><th>Count</th><th>% or $</th><th>${rankHeader}</th><th>Local Corr.</th><th>Global Corr.</th></tr></thead><tbody>`; 
             
             if (properties.hasOwnProperty('total_pop')) {
                 const indicatorKey = 'total_pop';
@@ -1784,7 +1826,8 @@
                 
                 const countValueCell = getValueCell(properties, indicatorKey);
                 const percentValueCell = '<td></td>';
-                const correlationCell = getCorrelationCell(indicatorKey);
+                const localCorrelationCell = getLocalCorrelationCell(indicatorKey);
+                const globalCorrelationCell = getGlobalCorrelationCell(indicatorKey);
 
                 let rankCell = '<td>N/A</td>';
                 if (allIndicatorRanks.has(indicatorKey)) {
@@ -1794,7 +1837,7 @@
                         rankCell = `<td class="text-center font-bold">${rank}</td>`;
                     }
                 }
-                content += `<tr class="${rowClass}" ${dataAttribute}><td title="${formattedName}">${formattedName}</td>${countValueCell}${percentValueCell}${rankCell}${correlationCell}</tr>`;
+                content += `<tr class="${rowClass}" ${dataAttribute}><td title="${formattedName}">${formattedName}</td>${countValueCell}${percentValueCell}${rankCell}${localCorrelationCell}${globalCorrelationCell}</tr>`;
             }
             
             const indicatorPairs = {}; 
@@ -1819,7 +1862,8 @@
                 const formattedBaseName = formatIndicatorName(baseName).replace(/ \(.+\)/, ''); 
                 let rowClass = (currentIndicator === indicatorForDisplay) ? 'sidebar-highlight' : ''; 
                 let dataAttribute = percentInd ? `data-indicator="${percentInd}"` : ''; 
-                const correlationCell = getCorrelationCell(percentInd);
+                const localCorrelationCell = getLocalCorrelationCell(percentInd);
+                const globalCorrelationCell = getGlobalCorrelationCell(percentInd);
 
                 let rankCell = '<td></td>';
                 if(percentInd) {
@@ -1836,7 +1880,7 @@
                      }
                 }
                 
-                content += `<tr class="${rowClass}" ${dataAttribute}><td title="${formattedBaseName}">${formattedBaseName}</td>${getValueCell(properties, countInd)}${getValueCell(properties, percentInd)}${rankCell}${correlationCell}</tr>`; 
+                content += `<tr class="${rowClass}" ${dataAttribute}><td title="${formattedBaseName}">${formattedBaseName}</td>${getValueCell(properties, countInd)}${getValueCell(properties, percentInd)}${rankCell}${localCorrelationCell}${globalCorrelationCell}</tr>`; 
             } 
             
             content += '</tbody></table></div>'; 
@@ -1857,7 +1901,7 @@
             }); 
         }
 
-        function getCorrelationCell(indicator) {
+        function getLocalCorrelationCell(indicator) {
             if (!currentIndicator || !indicator) return '<td></td>';
             if (indicator === currentIndicator) return '<td class="text-center font-bold">1.00</td>';
 
@@ -1870,7 +1914,30 @@
             
             const absCorr = Math.abs(correlationValue);
             let bgColor = 'transparent';
-            let textColor = 'black'; // Default text color
+            let textColor = 'black';
+
+            if (absCorr > 0.1) {
+                 bgColor = chroma.scale(['#f8696b', '#fcfbcf', '#63be7b']).domain([-1, 0, 1])(correlationValue).hex();
+                 textColor = chroma(bgColor).luminance() < 0.4 ? 'white' : 'black';
+            }
+
+            return `<td style="background-color:${bgColor}; color:${textColor};" class="text-center font-bold">${correlationValue.toFixed(2)}</td>`;
+        }
+        
+        function getGlobalCorrelationCell(indicator) {
+            if (!currentIndicator || !indicator) return '<td></td>';
+            if (indicator === currentIndicator) return '<td class="text-center font-bold">1.00</td>';
+
+            const correlationKey = `${currentIndicator}|${indicator}`;
+            const correlationValue = globalCorrelations.get(correlationKey);
+
+            if (isNaN(correlationValue) || correlationValue === null) {
+                return '<td class="text-center">N/A</td>';
+            }
+
+            const absCorr = Math.abs(correlationValue);
+            let bgColor = 'transparent';
+            let textColor = 'black';
 
             if (absCorr > 0.1) {
                  bgColor = chroma.scale(['#f8696b', '#fcfbcf', '#63be7b']).domain([-1, 0, 1])(correlationValue).hex();
