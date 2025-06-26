@@ -575,7 +575,7 @@
             "highschool_youth_25_34": { "definition": "% of the population aged 25-34 with only a High school diploma or equivalent", "source": "Statistics Canada: 2016 Census Cat. no. 98-401-X2016021, 98-401-X2016067" },
             "highschool_adult_35-64": { "definition": "% of the population aged 35-64 with only a High school diploma or equivalent", "source": "Statistics Canada: 2016 Census Cat. no. 98-401-X2016021, 98-401-X2016068" },
             "educational_assets_youth_20_34": { "definition": "% of the population aged 20-34 that has completed a postsecondary certificate, diploma or degree", "source": "Statistics Canada: 2016 Census Cat. no. 98-401-X2016021, 98-401-X2016069" },
-            "educational_assets_adults_35_64": { "definition": "% of the population aged 35-64 year that has completed a postsecondary certificate, diploma or degree", "source": "Statistics Canada: 2016 Census Cat. no. 98-401-X2016021, 98-401-X2016070" },
+            "educational_assets_adults_35_64": { "definition": "% of the population aged 35-64 year that has completed a postsecondary certificate, diploma or degree", "source": "Statistics Canada: 2016 Census Cat. no. 98-401-X2016070" },
             "youth_unemployment_20_34": { "definition": "% of the labour force aged 20-34 that is unemployed", "source": "Statistics Canada: 2016 Census Cat. no. 98-401-X2016021, 98-401-X2016071" },
             "adult_unemployment_35_64": { "definition": "% of the labour force aged 35-64 that is unemployed", "source": "Statistics Canada: 2016 Census Cat. no. 98-401-X2016021, 98-401-X2016072" },
             "low_wage_employment_25": { "definition": "% of the population aged 25+ working in retail trade and accommodation and food services", "source": "Statistics Canada: 2016 Census Cat. no. 98-401-X2016021, 98-401-X2016072" }
@@ -750,9 +750,54 @@
         function getBreaks(data, numBreaks) { const sortedData = [...new Set(data)].sort((a, b) => a - b); if (sortedData.length === 0) return [0, 1]; const min = sortedData[0]; const max = sortedData[sortedData.length - 1]; if (sortedData.length < numBreaks) return [min, max]; const breaks = []; for (let i = 0; i < numBreaks; i++) { breaks.push(min + (i / (numBreaks - 1)) * (max - min)); } return breaks; }
         function styleFeature(feature, scale) { let value = 'N/A'; if (feature) value = parseFloat(feature.properties[currentIndicator]); return { fillColor: (feature && currentIndicator && !isNaN(value) && scale) ? scale(value).hex() : '#dddddd', weight: 1, opacity: 1, color: 'white', dashArray: '3', fillOpacity: 0.75 }; }
         function updateLegend(scale, indicator) { const domain = scale.domain(); const colors = scale.colors(5); let gradient = 'linear-gradient(to right, ' + colors.join(', ') + ')'; legend.innerHTML = `<h4>${formatIndicatorName(indicator).replace(/ \(.+\)/,'')}</h4><div class="legend-scale-container" style="position: relative;"><div class="color-bar" style="background: ${gradient};"></div></div><div class="labels"><span>${formatValue(domain[0], indicator)}</span><span>${formatValue(domain[domain.length - 1], indicator)}</span></div>`; legend.classList.remove('hidden'); updateLegendIndicator(); }
-        function updateLegendIndicator() { const existingMarker = document.getElementById('legend-marker'); if(existingMarker) existingMarker.remove(); if (!clickedFeature || legend.classList.contains('hidden') || !indicatorScales[currentIndicator]) return; const scale = indicatorScales[currentIndicator]; const domain = scale.domain(); const min = domain[0]; const max = domain[domain.length - 1]; const value = parseFloat(clickedFeature.properties[currentIndicator]); if (isNaN(value) || value < min || value > max) return; const positionPercent = ((value - min) / (max - min)) * 100; const marker = document.createElement('div'); marker.id = 'legend-marker'; marker.className = 'legend-marker'; marker.style.left = `${positionPercent}%`; const container = legend.querySelector('.legend-scale-container'); if(container) container.appendChild(marker); }
-        function highlightFeature(e) { const layer = e.target; layer.setStyle({ weight: 3, color: '#333', dashArray: '', fillOpacity: 0.9 }); if (!L.Browser.ie) layer.bringToFront(); updateInfoBox(e); }
-        function resetHighlight(e) { if (e.target !== clickedLayer) { if (activeYear && activeLayerKey && loadedLayers[activeYear][activeLayerKey] && loadedLayers[activeYear][activeLayerKey].layer) { loadedLayers[activeYear][activeLayerKey].layer.resetStyle(e.target); } } if (!IS_MOBILE_VIEW) { infoBox.classList.remove('visible'); } }
+        
+        // MODIFIED: Accepts an optional feature to show, otherwise defaults to the globally clicked feature.
+        function updateLegendIndicator(featureToShow = null) {
+            const feature = featureToShow || clickedFeature;
+            const existingMarker = document.getElementById('legend-marker');
+            if(existingMarker) existingMarker.remove();
+
+            if (!feature || legend.classList.contains('hidden') || !indicatorScales[currentIndicator]) return;
+            
+            const scale = indicatorScales[currentIndicator];
+            const domain = scale.domain();
+            const min = domain[0];
+            const max = domain[domain.length - 1];
+            const value = parseFloat(feature.properties[currentIndicator]);
+
+            if (isNaN(value) || value < min || value > max) return;
+
+            const positionPercent = ((value - min) / (max - min)) * 100;
+            const marker = document.createElement('div');
+            marker.id = 'legend-marker';
+            marker.className = 'legend-marker';
+            marker.style.left = `${positionPercent}%`;
+            const container = legend.querySelector('.legend-scale-container');
+            if(container) container.appendChild(marker);
+        }
+
+        // MODIFIED: Now calls updateLegendIndicator to show the marker on hover/tap.
+        function highlightFeature(e) {
+            const layer = e.target;
+            layer.setStyle({ weight: 3, color: '#333', dashArray: '', fillOpacity: 0.9 });
+            if (!L.Browser.ie) layer.bringToFront();
+            updateInfoBox(e);
+            updateLegendIndicator(layer.feature); // Update legend for the hovered/tapped feature
+        }
+
+        // MODIFIED: Now calls updateLegendIndicator to reset the marker to the clicked feature's state.
+        function resetHighlight(e) {
+            if (e.target !== clickedLayer) {
+                if (activeYear && activeLayerKey && loadedLayers[activeYear][activeLayerKey] && loadedLayers[activeYear][activeLayerKey].layer) {
+                    loadedLayers[activeYear][activeLayerKey].layer.resetStyle(e.target);
+                }
+            }
+            if (!IS_MOBILE_VIEW) {
+                infoBox.classList.remove('visible');
+            }
+            updateLegendIndicator(); // Reset to clicked feature (or nothing)
+        }
+
         function highlightClickedFeature(layer) { if (clickedLayer) { if (activeYear && activeLayerKey && loadedLayers[activeYear][activeLayerKey] && loadedLayers[activeYear][activeLayerKey].layer) { loadedLayers[activeYear][activeLayerKey].layer.resetStyle(clickedLayer); } } if (layer) { layer.setStyle({ weight: 3, color: '#333', dashArray: '', fillOpacity: 0.9 }); if (!L.Browser.ie) { layer.bringToFront(); } } clickedLayer = layer; }
         function handleFeatureClick(e) { const target = e.target; clickedFeature = target.feature; highlightClickedFeature(target); populateDataSidebar(clickedFeature.properties); updateLegendIndicator(); dataSidebar.classList.add('visible'); if (!IS_MOBILE_VIEW) { setTimeout(() => { try { const bounds = target.getBounds(); if (!bounds || !bounds.isValid()) { throw new Error("Bounds are not valid for this feature."); } const paddingOptions = { paddingTopLeft: [document.getElementById('sidebar').offsetWidth + 20, 40], paddingBottomRight: [dataSidebar.offsetWidth + 20, 40] }; map.fitBounds(bounds, paddingOptions); } catch (err) { console.error("Could not zoom to feature. Using fallback.", err); const layerType = getLayerType(activeLayerKey); const fallbackZoom = fallbackZoomLevels[layerType] || 8; map.flyTo(e.latlng, fallbackZoom, {animate: true, duration: 1}); } }, 350); } if (homeButton) { homeButton.classList.add('rattle-animation'); setTimeout(() => { homeButton.classList.remove('rattle-animation'); }, 500); } }
         function getTopBottomFive(indicator) { if (!activeYear || !activeLayerKey || !loadedLayers[activeYear]?.[activeLayerKey]) { return { top5: [], bottom5: [] }; } const features = loadedLayers[activeYear][activeLayerKey].geojson.features; const validFeatures = features .map(f => ({ name: getRegionName(f.properties, activeLayerKey), value: parseFloat(f.properties[indicator]), uid: getRegionUID(f.properties, activeLayerKey) })) .filter(item => item.value !== null && !isNaN(item.value) && isFinite(item.value)); validFeatures.sort((a, b) => b.value - a.value); const top5 = validFeatures.slice(0, 5); const bottom5 = validFeatures.slice(-5).reverse(); return { top5, bottom5 }; }
@@ -815,7 +860,33 @@
 
             if (rankingChart) { rankingChart.destroy(); }
             const ctx = document.getElementById('rankingChart').getContext('2d');
-            rankingChart = new Chart(ctx, { type: 'bar', data: { labels: labels, datasets: [{ label: formatIndicatorName(currentIndicator), data: datasets, backgroundColor: backgroundColors, borderColor: borderColors, borderWidth: 1 }] }, options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false, onClick: (event, elements) => { if (elements.length === 0) return; const elementIndex = elements[0].index; const clickedUID = chartData[elementIndex].uid; const activeGeoJsonLayer = loadedLayers[activeYear][activeLayerKey].layer; let targetLayer = null; activeGeoJsonLayer.eachLayer(layer => { if (getRegionUID(layer.feature.properties, activeLayerKey) === clickedUID) { targetLayer = layer; } }); if (targetLayer) { masterClickHandler({ target: targetLayer }); } }, plugins: { legend: { display: false }, title: { display: true, text: `Top and Bottom 5 for ${formatIndicatorName(currentIndicator)}` }, tooltip: { callbacks: { label: function(context) { let label = context.dataset.label || ''; if (label) { label = label.replace(/ \(.+\)/, ''); label += ': '; } if (context.parsed.x !== null) { label += formatValue(context.parsed.x, currentIndicator); } return label; } } }, datalabels: { display: false, /* MODIFIED: Set to false by default */ anchor: 'end', align: 'end', formatter: (value, context) => formatValue(value, currentIndicator), color: (context) => { const bgColor = context.dataset.backgroundColor[context.dataIndex]; return chroma(bgColor).luminance() > 0.4 ? '#333' : 'white'; }, font: { weight: 'bold' }, textStrokeColor: 'black', textStrokeWidth: 0.5 } }, scales: { x: { ticks: { callback: function(value, index, values) { if(isPercentageIndicator(currentIndicator)) { return (value * 100).toFixed(0) + '%'; } if (isCurrencyIndicator(currentIndicator)) { return '$' + Math.round(value / 1000) + 'k'; } return Math.round(value).toLocaleString(); } } } } } });
+            rankingChart = new Chart(ctx, { type: 'bar', data: { labels: labels, datasets: [{ label: formatIndicatorName(currentIndicator), data: datasets, backgroundColor: backgroundColors, borderColor: borderColors, borderWidth: 1 }] }, options: { 
+                indexAxis: 'y', responsive: true, maintainAspectRatio: false, 
+                onClick: (event, elements) => { 
+                    if (elements.length === 0) return;
+                    const elementIndex = elements[0].index;
+                    const clickedUID = chartData[elementIndex].uid;
+
+                    // MODIFIED: Logic to update sidebar instead of collapsing it on mobile
+                    const features = loadedLayers[activeYear][activeLayerKey].geojson.features;
+                    const targetFeature = features.find(f => getRegionUID(f.properties, activeLayerKey) === clickedUID);
+                    
+                    if (targetFeature) {
+                        const activeGeoJsonLayer = loadedLayers[activeYear][activeLayerKey].layer;
+                        let targetLayer = null;
+                        activeGeoJsonLayer.eachLayer(layer => {
+                            if (getRegionUID(layer.feature.properties, activeLayerKey) === clickedUID) {
+                                targetLayer = layer;
+                            }
+                        });
+                        
+                        clickedFeature = targetFeature;
+                        if(targetLayer) highlightClickedFeature(targetLayer);
+                        populateDataSidebar(targetFeature.properties);
+                        updateLegendIndicator();
+                    }
+                }, 
+                plugins: { legend: { display: false }, title: { display: true, text: `Top and Bottom 5 for ${formatIndicatorName(currentIndicator)}` }, tooltip: { callbacks: { label: function(context) { let label = context.dataset.label || ''; if (label) { label = label.replace(/ \(.+\)/, ''); label += ': '; } if (context.parsed.x !== null) { label += formatValue(context.parsed.x, currentIndicator); } return label; } } }, datalabels: { display: false, /* Set to false by default */ anchor: 'end', align: 'end', formatter: (value, context) => formatValue(value, currentIndicator), color: (context) => { const bgColor = context.dataset.backgroundColor[context.dataIndex]; return chroma(bgColor).luminance() > 0.4 ? '#333' : 'white'; }, font: { weight: 'bold' }, textStrokeColor: 'black', textStrokeWidth: 0.5 } }, scales: { x: { ticks: { callback: function(value, index, values) { if(isPercentageIndicator(currentIndicator)) { return (value * 100).toFixed(0) + '%'; } if (isCurrencyIndicator(currentIndicator)) { return '$' + Math.round(value / 1000) + 'k'; } return Math.round(value).toLocaleString(); } } } } } });
         }
         
         function getIndicatorDistribution() {
@@ -924,7 +995,7 @@
                             }
                         },
                         datalabels: {
-                            display: false, /* MODIFIED: Set to false by default */
+                            display: false, /* Set to false by default */
                             anchor: 'end',
                             align: 'end',
                             formatter: (value) => (value > 0 ? value.toLocaleString() : ''),
@@ -1067,8 +1138,9 @@
                     rankHeader = `Rank (of ${total})`;
                 }
             }
-
-            let content = `<div class="flex justify-between items-center mb-4"><h3 class="text-xl font-semibold">${getRegionName(properties, activeLayerKey)} - ${activeYear}</h3><button id="close-data-sidebar" class="text-gray-500 hover:text-gray-800 text-2xl leading-none">&times;</button></div><div class="flex"><button id="open-download-modal-btn" class="download-btn">Download CSV</button><button id="download-image-btn" class="download-btn ml-2">Download Image</button></div><div id="data-sidebar-content"><div id="ranking-chart-container" style="height: 400px; margin-bottom: 1rem;"><canvas id="rankingChart"></canvas></div><div id="histogram-chart-container" style="height: 250px; margin-bottom: 1rem;"><canvas id="histogramChart"></canvas></div><table id="indicator-table"><thead><tr><th>Indicator</th><th>Count</th><th>% or $</th><th>${rankHeader}</th></tr></thead><tbody>`; 
+            
+            // MODIFIED: Centered buttons with a gap
+            let content = `<div class="flex justify-between items-center mb-4"><h3 class="text-xl font-semibold">${getRegionName(properties, activeLayerKey)} - ${activeYear}</h3><button id="close-data-sidebar" class="text-gray-500 hover:text-gray-800 text-2xl leading-none">&times;</button></div><div class="flex justify-center items-center my-2 gap-x-3"><button id="open-download-modal-btn" class="download-btn">Download CSV</button><button id="download-image-btn" class="download-btn">Download Image</button></div><div id="data-sidebar-content"><div id="ranking-chart-container" style="height: 400px; margin-bottom: 1rem;"><canvas id="rankingChart"></canvas></div><div id="histogram-chart-container" style="height: 250px; margin-bottom: 1rem;"><canvas id="histogramChart"></canvas></div><table id="indicator-table"><thead><tr><th>Indicator</th><th>Count</th><th>% or $</th><th>${rankHeader}</th></tr></thead><tbody>`; 
             
             if (properties.hasOwnProperty('total_pop')) {
                 const indicatorKey = 'total_pop';
