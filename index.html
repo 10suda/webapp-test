@@ -597,6 +597,48 @@
     document.addEventListener('DOMContentLoaded', async () => {
         Chart.register(ChartDataLabels);
 
+        const markerPlugin = {
+            id: 'selectedBarMarker',
+            afterDraw: (chart) => {
+                const { ctx } = chart;
+                const markerOptions = chart.options.plugins.selectedBarMarker;
+
+                if (!markerOptions || markerOptions.selectedValueBin < 0) {
+                    return;
+                }
+                
+                const selectedValueBin = markerOptions.selectedValueBin;
+                const meta = chart.getDatasetMeta(0);
+
+                if (!meta.data[selectedValueBin]) {
+                    return;
+                }
+
+                const bar = meta.data[selectedValueBin];
+                const barX = bar.x;
+                const barTopY = bar.y;
+                
+                const size = 6;      // Half-width of the triangle's base
+                const height = 9;    // Height of the triangle
+                const yOffset = 3;   // Space between triangle tip and bar top
+
+                const pointY = barTopY - yOffset;
+                const baseY = pointY - height;
+
+                ctx.save();
+                ctx.beginPath();
+                ctx.moveTo(barX, pointY); 
+                ctx.lineTo(barX - size, baseY); 
+                ctx.lineTo(barX + size, baseY); 
+                ctx.closePath();
+                
+                ctx.fillStyle = '#37424a'; // CDP Dark Grey
+                ctx.fill();
+                ctx.restore();
+            }
+        };
+        Chart.register(markerPlugin);
+
         let allMeasuresInfo = {};
         let loadedLayers = {}; 
         let activeYear = null;
@@ -1376,16 +1418,24 @@
             const finalLabels = [];
             const finalBins = [];
             const binnedFeatures = [];
+            const binRepresentativeValues = [];
 
             const underflowFeatures = sortedData.filter(item => item.value < lowerFence);
             finalLabels.push(`< ${formatHistogramLabel(lowerFence, currentIndicator)}`);
             finalBins.push(underflowFeatures.length);
             binnedFeatures.push(underflowFeatures.map(item => item.feature));
+            if (underflowFeatures.length > 0) {
+                const avg = underflowFeatures.reduce((sum, item) => sum + item.value, 0) / underflowFeatures.length;
+                binRepresentativeValues.push(avg);
+            } else {
+                binRepresentativeValues.push(lowerFence - (iqr * 0.1 || 1));
+            }
 
             const coreBins = Array(numBins).fill(0);
             const coreBinnedFeatures = Array.from({ length: numBins }, () => []);
             for (let i = 0; i < numBins; i++) {
                 finalLabels.push(`${formatHistogramLabel(coreMin + i * binWidth, currentIndicator)} - ${formatHistogramLabel(coreMin + (i + 1) * binWidth, currentIndicator)}`);
+                 binRepresentativeValues.push(coreMin + (i + 0.5) * binWidth);
             }
             if (binWidth > 0) {
                 for (const item of coreData) {
@@ -1405,6 +1455,12 @@
             finalLabels.push(`> ${formatHistogramLabel(upperFence, currentIndicator)}`);
             finalBins.push(overflowFeatures.length);
             binnedFeatures.push(overflowFeatures.map(item => item.feature));
+            if (overflowFeatures.length > 0) {
+                const avg = overflowFeatures.reduce((sum, item) => sum + item.value, 0) / overflowFeatures.length;
+                binRepresentativeValues.push(avg);
+            } else {
+                binRepresentativeValues.push(upperFence + (iqr * 0.1 || 1));
+            }
             
             let selectedValueBin = -1;
             if (clickedFeature) {
@@ -1422,8 +1478,18 @@
                 }
             }
 
-            const backgroundColors = finalLabels.map((_, i) => i === selectedValueBin ? 'rgba(255, 193, 7, 0.8)' : 'rgba(0, 153, 153, 0.6)');
-            const borderColors = finalLabels.map((_, i) => i === selectedValueBin ? 'rgba(255, 193, 7, 1)' : 'rgba(0, 153, 153, 1)');
+            const scale = indicatorScales[currentIndicator];
+            const backgroundColors = [];
+            const borderColors = [];
+
+            binRepresentativeValues.forEach(value => {
+                let color = '#cccccc';
+                if (scale && isFinite(value)) {
+                    color = scale(value).hex();
+                }
+                backgroundColors.push(chroma(color).alpha(0.7).css());
+                borderColors.push(color);
+            });
 
             const ctx = document.getElementById('histogramChart').getContext('2d');
             histogramChart = new Chart(ctx, {
@@ -1440,7 +1506,15 @@
                            dismissDrillDownPopup();
                         }
                     },
-                    plugins: { legend: { display: false }, title: { display: true, text: `Distribution for ${formatIndicatorName(currentIndicator)}` }, tooltip: { callbacks: { title: (context) => `Range: ${context[0].label}`, label: (context) => `Geographies: ${context.parsed.y}` } }, datalabels: { display: false } },
+                    plugins: { 
+                        legend: { display: false }, 
+                        title: { display: true, text: `Distribution for ${formatIndicatorName(currentIndicator)}` }, 
+                        tooltip: { callbacks: { title: (context) => `Range: ${context[0].label}`, label: (context) => `Geographies: ${context.parsed.y}` } }, 
+                        datalabels: { display: false },
+                        selectedBarMarker: {
+                           selectedValueBin: selectedValueBin
+                        }
+                    },
                     scales: { y: { beginAtZero: true, title: { display: true, text: 'Number of Geographies' } }, x: { title: { display: true, text: 'Value Bins' } } }
                 }
             });
@@ -1457,7 +1531,7 @@
             if (layerType === 'CT_') {
                  baseQuery = baseQuery.replace(/CT /i, '').trim();
                  if (!isNaN(baseQuery)) {
-                      baseQuery = properties.CMANAME || properties.CDNAME;
+                     baseQuery = properties.CMANAME || properties.CDNAME;
                  }
             }
             if (!baseQuery) return { intro: null, imageUrls: [] };
